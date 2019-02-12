@@ -1,0 +1,16 @@
+{
+  "name": "gfn-discord-bot",
+  "version": "0.0.1",
+  "description": "Discord Bot for GFN Triumphs",
+  "main": "bot.js",
+  "scripts": {
+    "start": "nodemon bot.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Kyle Hanson (digitalFlame)",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^11.4.2",
+    "mongoose": "^5.4.11",
+  }
+}
