@@ -1,0 +1,23 @@
+[
+    {
+        "id": "destiny2",
+        "name": "Destiny 2",
+        "shortname": "d2",
+        "emote": "🇩",
+        "defaultIcon": "https://p.kindpng.com/picc/s/101-1015388_transparent-destiny-png-transparent-destiny-2-logo-png.png"
+    },
+    {
+        "id": "rocketleague",
+        "name": "Rocket League",
+        "shortname": "rl",
+        "emote": "🇷",
+        "defaultIcon": "https://img.icons8.com/nolan/452/rocket-league.png"
+    },
+    {
+        "id": "othergames",
+        "name": "Other Games",
+        "shortname": "og",
+        "emote": "🇴",
+        "defaultIcon": "https://i.imgur.com/7w3nnU9.png"
+    }
+]

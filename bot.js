@@ -1,60 +1,89 @@
-const Discord = require('discord.js');
-const config = require('./config.json');
-const mongoose = require('mongoose');
+const Discord = require('discord.js')
+const {getConfig} = require('./src/lib/config')
+const dbUtils = require('./src/models/db-utils')
+const { initEventTypes, initEventGames } = require('./src/models/event-types-model')
+const {setBotUser, getVersion} = require('./src/lib/global-vars')
+const {matchMessage, sendMessage, sendReply, sendImage} = require('./src/lib/discord-utils')
+const { executeMemeMessages } = require('./src/commands/memes')
+const { executeIronBannerMessage } = require('./src/commands/iron-banner')
+const { executeEventMessage, executeEventReaction, executeEventCleanup, executeEventNotifications, executeDailyNotifications } = require('./src/commands/events')
+const { executeSettingsMessage } = require('./src/commands/settings')
+const { executeGeneralMessage } = require('./src/commands/general')
+const { executeEventTypeMessage } = require('./src/commands/event-types')
+const { handleReactionRoles, executeReactionRoleMessage } = require('./src/commands/roles')
+const client = new Discord.Client({ partials: ['MESSAGE', 'CHANNEL', 'REACTION'] })
+const logger = require('./src/lib/logger')
 
-mongoose.connect('mongodb://localhost:27017/gfndiscord', {useNewUrlParser: true});
+const EVENT_CLEANUP_INTERVAL = 1 * 60 * 1000
+const EVENT_NOTIFICATION_INTERVAL = 1 * 60 * 1000
 
-const Triumph = mongoose.model('Triumph', { title: String, description: String });
+if(!process.env.NODE_ENV) {
+	process.env.NODE_ENV = 'development'
+}
+logger.info(`GFN Discord Bot -- Version ${getVersion()}`)
+logger.info(`bot initialized using ${process.env.NODE_ENV} environment`)
+// initalize database connections
+dbUtils.initMongo()
 
-const client = new Discord.Client();
+// message index
+client.on('message', msg => {
+    executeMemeMessages(msg)
+    executeIronBannerMessage(msg)
+	executeEventMessage(msg)
+	executeSettingsMessage(msg)
+	executeGeneralMessage(msg)
+	executeEventTypeMessage(msg)
+	executeReactionRoleMessage(msg)
+})
+
+client.on('messageReactionAdd', async (reaction, user) => {
+	// When we receive a reaction we check if the reaction is partial or not
+	if (reaction.partial) {
+		// If the message this reaction belongs to was removed the fetching might result in an API error, which we need to handle
+		try {
+			await reaction.fetch();
+		} catch (error) {
+			console.error('Something went wrong when fetching the message: ', error);
+			// Return as `reaction.message.author` may be undefined/null
+			return;
+		}
+    }
+    if(user.id !== client.user.id && reaction.message.author.id === client.user.id) {
+		executeEventReaction(reaction, user)
+    } else if(user.id !== client.user.id) {
+		handleReactionRoles(reaction, user, true)
+	}
+});
+
+client.on('messageReactionRemove', async (reaction, user) => {
+	// When we receive a reaction we check if the reaction is partial or not
+	if (reaction.partial) {
+		// If the message this reaction belongs to was removed the fetching might result in an API error, which we need to handle
+		try {
+			await reaction.fetch();
+		} catch (error) {
+			console.error('Something went wrong when fetching the message: ', error);
+			// Return as `reaction.message.author` may be undefined/null
+			return;
+		}
+    }
+    if(user.id !== client.user.id) {
+		handleReactionRoles(reaction, user, false)
+	}
+});
 
 client.on('ready', () => {
-    console.log(`Logged in as ${client.user.tag}!`);
-});
+	setBotUser(client.user)
+	initEventTypes()
+	initEventGames()
+	setInterval(executeEventCleanup, EVENT_CLEANUP_INTERVAL, client)
+	setInterval(executeEventNotifications, EVENT_NOTIFICATION_INTERVAL, client)
+	setInterval(executeDailyNotifications, EVENT_NOTIFICATION_INTERVAL, client)
+	executeEventCleanup(client)
+	executeEventNotifications(client)
+	executeDailyNotifications(client)
+})
 
-client.on('message', msg => {
-    //return if the message doesn't begin with the bot prefix, or if the message is from the bot itself
-    if (!msg.content.startsWith(config.prefix) || msg.author.bot) return;
+// start bot
+client.login(getConfig().token)
 
-    if (msg.content.startsWith(config.prefix)) {
-        var messages = msg.content.split(' ');
-        var cmd = messages[1];
-        if(cmd === 'create') {
-            console.log("Create new triumph from user: "+msg.author.id);
-            msg.channel.send('Please provide a title and description for your triumph')
-                .then(() => {msg.channel.awaitMessages(response =>
-                    response.author.id === msg.author.id, {
-                        max: 1,
-                        time: 30000,
-                        errors: ['time'],
-
-                })
-                .then((response) => {
-                    console.log("Got reply from user: "+response.first().author.id);
-                    var contents = response.first().content.split('=');
-
-                    const triumph = new Triumph({ title: contents[0], description: contents[1] });
-                    triumph.save().then(() => {
-                        const embed = new Discord.RichEmbed()
-                        // Set the title of the field
-                            .setTitle(contents[0])
-                            // Set the color of the embed
-                            .setColor(0xfda50f)
-                            // Set the main content of the embed
-                            .setDescription(contents[1])
-                            .setThumbnail("https://i.imgur.com/7IaMctA.png")
-                            .setFooter('Created by ' + msg.author.username + ' on ' + new Date());
-                        msg.channel.send(embed);
-                    });
-                })
-                .catch((err) => {
-                    msg.channel.send('There was no collected message that passed the filter within the time limit!');
-                    console.log("Message did not pass filter: expected user: "+msg.author.id);
-                    console.log(err)
-                });
-            });
-        }
-    }
-});
-
-client.login(config.token);

@@ -1,16 +1,22 @@
 {
-  "name": "gfn-discord-bot",
-  "version": "0.0.1",
-  "description": "Discord Bot for GFN Triumphs",
+  "name": "gfn-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for GFN",
   "main": "bot.js",
   "scripts": {
     "start": "nodemon bot.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"No tests yet zoomeyes\""
   },
-  "author": "Kyle Hanson (digitalFlame)",
+  "author": "Kyle Hanson",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^11.4.2",
-    "mongoose": "^5.4.11"
+    "chrono-node": "^2.1.7",
+    "discord.js": "^12.2.0",
+    "moment": "^2.27.0",
+    "moment-timezone": "^0.5.31",
+    "mongodb": "^3.6.0",
+    "mongoose": "^5.9.28",
+    "strftime": "^0.10.0",
+    "winston": "^3.3.3"
   }
 }

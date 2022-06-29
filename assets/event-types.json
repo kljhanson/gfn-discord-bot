@@ -1,0 +1,125 @@
+{
+    "raid": {
+        "name": "Raid",
+        "emote": "🇷",
+        "icon": "https://i.imgur.com/XqzeyRI.png",
+        "color": "#673ab7",
+        "defaultMax": 6,
+        "options": [
+            {
+                "emote": "🇼",
+                "name": "Last Wish",
+                "shortname": "lw"
+            },
+            {
+                "emote": "🇬",
+                "name": "Garden of Salvation",
+                "shortname": "gos"
+            },
+            {
+                "emote": "🇩",
+                "name": "Deep Stone Crypt",
+                "shortname": "dsc"
+            }
+        ]
+    },
+    "crucible": {
+        "name": "Crucible",
+        "emote": "🇨",
+        "icon": "https://i.imgur.com/CtILVHs.png",
+        "color": "#f44336",
+        "options": [
+            {
+                "emote": "🇶",
+                "name": "Quickplay",
+                "shortname": "qp",
+                "defaultMax": 6
+            },
+            {
+                "emote": "🇨",
+                "name": "Competitive",
+                "shortname": "comp",
+                "defaultMax": 3
+            }
+        ]
+    },
+    "iron banner": {
+        "name": "Iron Banner",
+        "shortname": "ib",
+        "emote": "🇮",
+        "icon": "https://i.imgur.com/CtILVHs.png",
+        "color": "#1b5e20",
+        "defaultMax": 6
+    },
+    "gambit": {
+        "name": "Gambit",
+        "shortname": "gambit",
+        "emote": "🇬",
+        "icon": "https://i.imgur.com/OKfgNd7.png",
+        "color": "#4caf50",
+        "defaultMax": 4
+    },
+    "strikes": {
+        "name": "Strikes",
+        "shortname": "strikes",
+        "emote": "🇻",
+        "icon": "https://i.imgur.com/RUyZpPv.png",
+        "color": "#ff9800",
+        "defaultMax": 3
+    },
+    "nightfall": {
+        "name": "Nightfall",
+        "shortname": "nightfall",
+        "emote": "🇳",
+        "icon": "https://i.imgur.com/RUyZpPv.png",
+        "color": "#2196f3",
+        "defaultMax": 3
+    },
+    "quests": {
+        "name": "Quests",
+        "shortname": "quest",
+        "emote": "🇶",
+        "icon": "https://i.imgur.com/y6eXm7k.png",
+        "color": "#00bcd4",
+        "defaultMax": 3
+    },
+    "trials": {
+        "name": "Trials",
+        "shortname": "trials",
+        "emote": "🇹",
+        "icon": "https://i.imgur.com/u7hQlyV.png",
+        "color": "#ffeb3b",
+        "defaultMax": 3
+    },
+    "dungeon": {
+        "name": "Dungeon",
+        "emote": "🇩",
+        "icon": "https://i.imgur.com/kuxwTGd.png",
+        "color": "#e91e63",
+        "defaultMax": 3,
+        "options": [
+            {
+                "emote": "🇸",
+                "name": "Shattered Throne",
+                "shortname": "st"
+            },
+            {
+                "emote": "🇭",
+                "name": "Pit of Heresy",
+                "shortname": "pit"
+            },
+            {
+                "emote": "🇵",
+                "name": "Prophesy",
+                "shortname": "prophesy"
+            }
+        ]
+    },
+    "other": {
+        "name": "Other",
+        "shortname": "other",
+        "emote": "🇴",
+        "icon": "https://i.imgur.com/7w3nnU9.png",
+        "color": "#9e9e9e"
+    }
+}

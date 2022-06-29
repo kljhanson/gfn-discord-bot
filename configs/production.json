@@ -1,0 +1,5 @@
+{
+    "token": "NjA1MDQ5OTg2NDIxMzU4NTky.XT22tg.BT-kDR3sfm3tH1BtV5V1LyalU38",
+    "dbUrl": "mongodb://localhost/gfn",
+    "logLevel": "info"
+}

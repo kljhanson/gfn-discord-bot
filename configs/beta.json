@@ -1,0 +1,5 @@
+{
+    "token": "NzQ0MjAyMTEzNTA4NDQyMTY4.XzfyOg.u6NReJCNKmj89VSUzlPqaUFKtNk",
+    "dbUrl": "mongodb://localhost/gfn-beta",
+    "logLevel": "debug"
+}
