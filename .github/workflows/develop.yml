@@ -48,17 +48,11 @@ jobs:
       - name: npm-install
         run: npm install
 
-      # Runs a set of commands using the runners shell
-      - name: deploy_beta
-        run: |
-          echo "Test ssh connection"
-          ssh -T "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
-          echo "Deploy files to app server"
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "mkdir -p /app/tmp-deploy/"
-          zip -r gfn-bot-deploy-package.zip .
-          scp gfn-bot-deploy-package.zip ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/app/.
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "unzip /app/gfn-bot-deploy-package.zip -d /app/tmp-deploy/"
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf /app/gfn-bot-beta/*"
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cp -r /app/tmp-deploy/* /app/gfn-bot-beta/."
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf /app/tmp-deploy/"
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm /app/gfn-bot-deploy-package.zip"
+      - name: ssh deploy
+        uses: easingthemes/ssh-deploy@v2.2.11
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
+          REMOTE_HOST: ${{ secrets.SSH_HOST }} 
+          REMOTE_USER: ${{ secrets.SSH_USER }} 
+          SOURCE: .
+          TARGET: /app/tmp-git-deploy/
