@@ -28,8 +28,8 @@ jobs:
           node-version: 12
       
       # install dependencies
-      - name: install-ssh-deps
-        run: eval $(ssh-agent -s)
+      # - name: install-ssh-deps
+      #   run: eval `ssh-agent -s`
         # run: |
         #   which ssh-agent || ( apt-get update -y && apt-get install openssh-client git -y )
         #   which zip || ( apt-get update -y && apt-get install zip -y )
@@ -37,6 +37,7 @@ jobs:
       
       - name: setup-ssh
         run: |
+          eval `ssh-agent -s`
           echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' | ssh-add -
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
