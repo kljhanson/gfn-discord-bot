@@ -1,5 +1,6 @@
 {
-    "token": "NzQ0MjAyODU4NDI5MTUzMjkx.Xzfy7A.6gA-SjoKEy7KG6B6FZZynY6EZqQ",
-    "dbUrl": "mongodb://192.168.1.2/gfn-dev",
+    "token": "",
+    "tokenPath": "configs/dev.token",
+    "dbUrl": "mongodb://192.168.50.2/gfn-dev",
     "logLevel": "debug"
 }

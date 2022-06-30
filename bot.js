@@ -1,4 +1,5 @@
 const Discord = require('discord.js')
+const fs = require("fs")
 const {getConfig} = require('./src/lib/config')
 const dbUtils = require('./src/models/db-utils')
 const { initEventTypes, initEventGames } = require('./src/models/event-types-model')
@@ -85,5 +86,5 @@ client.on('ready', () => {
 })
 
 // start bot
-client.login(getConfig().token)
-
+const botToken = fs.readFileSync(getConfig().tokenPath).toString()
+client.login(botToken)

@@ -1,0 +1,61 @@
+# This is a basic workflow to help you get started with Actions
+
+name: gfn-bot-deploy-beta
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "develop" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 12
+      
+      # install dependencies
+      - name: install-ssh-deps
+        run: |
+          'which ssh-agent || ( apt-get update -y && apt-get install openssh-client git -y )'
+          'which zip || ( apt-get update -y && apt-get install zip -y )'
+          eval $(ssh-agent -s)
+      
+      - name: setup-ssh
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' | ssh-add -
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # Runs a single command using the runners shell
+      - name: npm-install
+        run: npm install
+
+      # Runs a set of commands using the runners shell
+      - name: deploy_beta
+        run: |
+          echo "Test ssh connection"
+          ssh -T "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+          echo "Deploy files to app server"
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "mkdir -p /app/tmp-deploy/"
+          zip -r gfn-bot-deploy-package.zip .
+          scp gfn-bot-deploy-package.zip ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/app/.
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "unzip /app/gfn-bot-deploy-package.zip -d /app/tmp-deploy/"
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf /app/gfn-bot-beta/*"
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cp -r /app/tmp-deploy/* /app/gfn-bot-beta/."
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf /app/tmp-deploy/"
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm /app/gfn-bot-deploy-package.zip"
