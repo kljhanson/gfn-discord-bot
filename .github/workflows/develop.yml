@@ -38,7 +38,7 @@ jobs:
       - name: setup-ssh
         run: |
           eval `ssh-agent -s`
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' | ssh-add -
+          echo "${{ secrets.SSH_DEPLOY_KEY }}" | tr -d '\r' | ssh-add -
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           ssh-keyscan ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
@@ -48,11 +48,46 @@ jobs:
       - name: npm-install
         run: npm install
 
-      - name: ssh deploy
-        uses: easingthemes/ssh-deploy@v2.2.11
+      - name: package-zip
+        run: zip -r gfn-bot-deploy-package.zip .
+        
+      - name: deploy-ssh
+        uses: cross-the-world/ssh-scp-ssh-pipelines@latest
+        env:
+          WELCOME: "ssh scp ssh pipelines"
+          LASTSSH: "Doing something after copying"
         with:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
-          REMOTE_HOST: ${{ secrets.SSH_HOST }} 
-          REMOTE_USER: ${{ secrets.SSH_USER }} 
-          SOURCE: .
-          TARGET: /app/tmp-git-deploy/
+          host: ${{ secrets.SSH_HOST }}
+          user: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_DEPLOY_KEY }}
+          first_ssh: |
+            mkdir -p /app/tmp-github-deploy/
+          scp: gfn-bot-deploy-package.zip => /app/
+          last_ssh: |
+            unzip /app/gfn-bot-deploy-package.zip -d /app/tmp-github-deploy/
+
+#       - name: ssh deploy
+#         uses: easingthemes/ssh-deploy@v2.2.11
+#         with:
+#           SSH_PRIVATE_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
+#           REMOTE_HOST: ${{ secrets.SSH_HOST }} 
+#           REMOTE_USER: ${{ secrets.SSH_USER }} 
+#           SOURCE: .
+#           TARGET: /app/tmp-git-deploy/
+
+
+
+#       # Runs a set of commands using the runners shell
+#       - name: deploy_beta
+#         run: |
+#           echo "Test ssh connection"
+#           ssh -T "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+#           echo "Deploy files to app server"
+#           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "mkdir -p /app/tmp-deploy/"
+#           zip -r gfn-bot-deploy-package.zip .
+#           scp gfn-bot-deploy-package.zip ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/app/.
+#           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "unzip /app/gfn-bot-deploy-package.zip -d /app/tmp-deploy/"
+#           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf /app/gfn-bot-beta/*"
+#           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cp -r /app/tmp-deploy/* /app/gfn-bot-beta/."
+#           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf /app/tmp-deploy/"
+#           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm /app/gfn-bot-deploy-package.zip"
