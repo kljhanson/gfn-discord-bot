@@ -28,11 +28,12 @@ jobs:
           node-version: 12
       
       # install dependencies
-      # - name: install-ssh-deps
-      #   run: |
-      #     which ssh-agent || ( apt-get update -y && apt-get install openssh-client git -y )
-      #     which zip || ( apt-get update -y && apt-get install zip -y )
-      #     eval $(ssh-agent -s)
+      - name: install-ssh-deps
+        run: eval $(ssh-agent -s)
+        # run: |
+        #   which ssh-agent || ( apt-get update -y && apt-get install openssh-client git -y )
+        #   which zip || ( apt-get update -y && apt-get install zip -y )
+        #   eval $(ssh-agent -s)
       
       - name: setup-ssh
         run: |
