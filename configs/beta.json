@@ -1,5 +1,6 @@
 {
-    "token": "NzQ0MjAyMTEzNTA4NDQyMTY4.XzfyOg.u6NReJCNKmj89VSUzlPqaUFKtNk",
-    "dbUrl": "mongodb://localhost/gfn-beta",
+    "token": "",
+    "tokenPath": "/app/bot-configs/beta.token",
+    "dbUrl": "mongodb://0.0.0.0/gfn-beta",
     "logLevel": "debug"
 }

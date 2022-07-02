@@ -1,0 +1,63 @@
+# This is a basic workflow to help you get started with Actions
+
+name: gfn-bot-deploy-beta
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "develop" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+      - name: install-node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 12
+      
+      - name: setup-ssh
+        run: |
+          eval `ssh-agent -s`
+          echo "${{ secrets.SSH_DEPLOY_KEY }}" | tr -d '\r' | ssh-add -
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # Runs a single command using the runners shell
+      - name: npm-install
+        run: npm install
+
+      - name: package-zip
+        run: zip -r gfn-bot-deploy-package.zip .
+        
+      - name: deploy-ssh
+        uses: cross-the-world/ssh-scp-ssh-pipelines@latest
+        env:
+          WELCOME: "ssh scp ssh pipelines"
+          LASTSSH: "Doing something after copying"
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          user: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_DEPLOY_KEY }}
+          first_ssh: |
+            mkdir -p /app/tmp-github-deploy/
+          scp: gfn-bot-deploy-package.zip => /app/
+          last_ssh: |
+            unzip /app/gfn-bot-deploy-package.zip -d /app/tmp-github-deploy/
+            rm -rf /app/gfn-bot-beta/*
+            cp -r /app/tmp-github-deploy/* /app/gfn-bot-beta/.
+            rm -rf /app/tmp-github-deploy/
+            rm /app/gfn-bot-deploy-package.zip

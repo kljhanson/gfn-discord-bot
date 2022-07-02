@@ -1,5 +1,5 @@
 var botUser;
-const VERSION = `2.2.4`
+const VERSION = `2.2.5`
 
 function setBotUser(user) {
     botUser = user;

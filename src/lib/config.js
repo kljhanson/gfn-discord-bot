@@ -14,6 +14,18 @@ function getConfig() {
     return dev
 }
 
+function getEnv() {
+    // logger.info(`getting ${process.env.NODE_ENV} configuration`)
+    if(process.env.NODE_ENV === "production") {
+        return "prod"
+    }
+    if(process.env.NODE_ENV === "beta") {
+        return "beta"
+    }
+    return "dev"
+}
+
 module.exports = {
-    getConfig: getConfig
+    getConfig: getConfig,
+    getEnv: getEnv
 }
