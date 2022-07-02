@@ -29,3 +29,8 @@ The bot should initialize most required collections; however, if not please let 
 
 ### Note on Tests
 There are no tests. I am working on rectifying this but discord.js does not have great automated test support.
+
+## Versioning
+There is a version stamp in `src/lib/global-vars.js`. Please increment the minor/patch version when deploying changes so that you can verify the deployment is correct.
+## Deploying
+The github repo is set up to deploy to the beta and production servers on merging to develop and main respectively. You can verify the build is correct by running `gfn/info` on the beta/prod servers (GFN Beta / GFN)
