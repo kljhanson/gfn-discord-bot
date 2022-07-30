@@ -1,6 +1,7 @@
 const prod = require('../../configs/production.json')
 const beta = require('../../configs/beta.json')
 const dev = require('../../configs/dev.json')
+const test = require('../../configs/test.json')
 // const logger = require('./logger')
 
 function getConfig() {
@@ -10,6 +11,9 @@ function getConfig() {
     }
     if(process.env.NODE_ENV === "beta") {
         return beta
+    }
+    if(process.env.NODE_ENV === "test") {
+        return test
     }
     return dev
 }

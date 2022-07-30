@@ -1,0 +1,6 @@
+{
+    "token": "",
+    "tokenPath": "configs/test.token",
+    "dbUrl": "mongodb://localhost:27017/gfn-test",
+    "logLevel": "debug"
+}

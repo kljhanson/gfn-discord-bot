@@ -9,6 +9,12 @@ const quotes = require('../../assets/quotes.json')
 const utils = require('../lib/utils')
 const {matchMessage, sendMessage, sendReply, sendImage} = require('../lib/discord-utils')
 
+const memeGifs = {
+    snek: 'https://media.tenor.com/images/f88700a975e4139be55cb933e05f64d7/tenor.gif',
+    knobie: 'https://media.giphy.com/media/Qxp1ahQCHArlK/giphy.gif',
+    spook: 'https://media.discordapp.net/attachments/503667887576317982/640994085909430323/ezgif.com-crop.gif'
+}
+
 function executeMemeMessages(msg) {
     if(matchMessage(msg, 'rumi')) {
         sendMessage(msg, '<@533119423490293761> Hello bone guy :bone: ')
@@ -19,19 +25,20 @@ function executeMemeMessages(msg) {
     }
     if(matchMessage(msg, 'snek', 'hybrid')) {
         sendMessage(msg, '<@231577281758232576>')
-        sendImage(msg, 'https://media.tenor.com/images/f88700a975e4139be55cb933e05f64d7/tenor.gif')
+        sendImage(msg, memeGifs.snek)
     }
 
     if(matchMessage(msg, 'knob', 'knobie')) {
         sendMessage(msg, '🏳️‍🌈 <@364872700931342339>')
-        sendImage(msg, 'https://media.giphy.com/media/Qxp1ahQCHArlK/giphy.gif')
+        sendImage(msg, memeGifs.knobie)
     }
     
     if(matchMessage(msg, 'spook')) {
-        sendImage(msg, 'https://media.discordapp.net/attachments/503667887576317982/640994085909430323/ezgif.com-crop.gif')
+        sendImage(msg, memeGifs.spook)
     }
 }
 
 module.exports = {
-    executeMemeMessages: executeMemeMessages
+    executeMemeMessages: executeMemeMessages,
+    memeGifs: memeGifs
 }
