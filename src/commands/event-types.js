@@ -1,6 +1,6 @@
 const logger = require('../lib/logger')
 const Discord = require('discord.js')
-const { getEventEmbedWithDetails } = require('./events/event-ui')
+const { getEventEmbedWithDetails } = require('../lib/events/event-ui')
 const { getEventGames, getEventTypes, getEventTypesByGame, getEventTypeById, createEventType, createEventGame, addEventSubType } = require('../models/event-types-model')
 const { matchMessage, sendMessage, sendReply, sendImage, getMessageParams, isBlessed, collectMessageReplies, messageCollectorTimeout } = require('../lib/discord-utils')
 const { parseDate } = require('chrono-node/dist/locales/en')
@@ -42,10 +42,11 @@ function executeEventTypeMessage(msg) {
 async function sendCreateNewGameMessage(msg, gameName) {
     let gameId = gameName.replace(/[\W_]+/g, '').toLowerCase()
     let gameAbbr = gameName.match(/\b(\w)/g).join('').toLowerCase()
-    const embed = new Discord.MessageEmbed()
+    const descriptions = await getEventGameTypeDescriptions()
+    const embed = new Discord.EmbedBuilder()
         .setTitle(`Create New Game: ${gameName}`)
         .setDescription("React with the emote you want for this game. It must be unique and cannot be one of the following already existing game emotes:")
-        .addField('Existing emotes', await getEventGameTypeDescriptions())
+        .addFields([{name: 'Existing emotes', value: descriptions }])
     let botMessage = await sendMessage(msg, embed)
     const filter = (reaction, user) => {
         return user.id === msg.author.id;
@@ -72,13 +73,15 @@ async function sendCreateNewGameMessage(msg, gameName) {
 async function sendCreateNewGameFinal(originalMessage, prevBotMessage, gameName, emote) {
     let gameId = gameName.replace(/[\W_]+/g, '').toLowerCase()
     let gameAbbr = gameName.match(/\b(\w)/g).join('').toLowerCase()
-    const embed = new Discord.MessageEmbed()
+    const embed = new Discord.EmbedBuilder()
         .setTitle(`Create New Game`)
         .setDescription("If the items below look good, react with ✅ to finalize")
-        .addField(`Game Name`, `${gameName}`, true)
-        .addField(`Game ID`, `${gameId}`, true)
-        .addField(`Game Shortname`, `${gameAbbr}`, true)
-        .addField(`Emote`, `${emote}`, true)
+        .addFields([
+            { name: `Game Name`, value: `${gameName}`, inline: true },
+            { name: `Game ID`, value: `${gameId}`, inline: true },
+            { name: `Game Shortname`, value: `${gameAbbr}`, inline: true },
+            { name: `Emote`, value: `${emote}`, inline: true }
+        ])
         
     prevBotMessage.reactions.removeAll()
     prevBotMessage.edit(embed)
@@ -113,10 +116,10 @@ async function sendCreateNewGameFinal(originalMessage, prevBotMessage, gameName,
 async function sendCreateNewTypeMessage(originalMessage) {
     const embed = createNewTypeEmbed(1, "Create new event type",
         "Welcome to the event creation program. Please select a game using your keyboard or by selecting from the emote options below ")
-    embed.addField('Games', await getEventGameTypeDescriptions())
+    embed.addFields({name: 'Games', value: await getEventGameTypeDescriptions()})
     
     let gameTypes = await getEventGames()
-    const botMessage = await originalMessage.channel.send(embed)
+    const botMessage = await originalMessage.channel.send({ embeds: [embed]})
     addGameReactions(botMessage)
     const collector = collectMessageReplies(originalMessage, botMessage, (message, collector) => {
         collector.stop()
@@ -154,7 +157,7 @@ async function sendCreateNewTypeName(originalMessage, prevBotMessage, game) {
         `Give your ${game} event type a name`)
     
     if(!prevBotMessage) {
-        sendFunction = () => originalMessage.channel.send(embed)
+        sendFunction = () => originalMessage.channel.send({ embeds: [embed]})
     } 
     else {
         prevBotMessage.reactions.removeAll()
@@ -173,11 +176,11 @@ async function sendCreateNewTypeName(originalMessage, prevBotMessage, game) {
 async function sendCreateNewTypeEmote(originalMessage, prevBotMessage, game, typeName) {
     const embed = createNewTypeEmbed(3, `Create new event type: ${typeName}`,
         `React to this message with the emote that you want to use for this event type. It must be unique and cannot be one of the following already used emotes for the game ${game}`)
-    embed.addField('Existing emotes', await getEventEmoteDescriptions(game))
+    embed.addFields({name: 'Existing emotes', value: await getEventEmoteDescriptions(game)})
     
     let gameTypes = await getEventTypes(game)
     if(!prevBotMessage) {
-        sendFunction = () => originalMessage.channel.send(embed)
+        sendFunction = () => originalMessage.channel.send({ embeds: [embed]})
     } 
     else {
         prevBotMessage.reactions.removeAll()
@@ -213,7 +216,7 @@ async function sendCreateNewTypeColor(originalMessage, prevBotMessage, game, typ
         `Give your ${typeName} event type a color. Use a hex string color, without a hash. Example: f9f9f9`)
     
     if(!prevBotMessage) {
-        sendFunction = () => originalMessage.channel.send(embed)
+        sendFunction = () => originalMessage.channel.send({ embeds: [embed]})
     } 
     else {
         prevBotMessage.reactions.removeAll()
@@ -242,7 +245,7 @@ async function sendCreateNewTypeIcon(originalMessage, prevBotMessage, game, type
         `Give your ${typeName} a sweet icon. Provide a valid URL to use. You may need to upload the image to a different image host before using it.`)
     
     if(!prevBotMessage) {
-        sendFunction = () => originalMessage.channel.send(embed)
+        sendFunction = () => originalMessage.channel.send({ embeds: [embed]})
     } 
     else {
         prevBotMessage.reactions.removeAll()
@@ -269,7 +272,7 @@ async function sendCreateNewTypeMax(originalMessage, prevBotMessage, game, typeN
         `Give your ${typeName} a default max members. If you do not want to have a default max, then enter -1.`)
     
     if(!prevBotMessage) {
-        sendFunction = () => originalMessage.channel.send(embed)
+        sendFunction = () => originalMessage.channel.send({ embeds: [embed]})
     } 
     else {
         prevBotMessage.reactions.removeAll()
@@ -297,14 +300,16 @@ async function sendCreateNewTypeFinal(originalMessage, prevBotMessage, game, typ
     let shortname = typeName.match(/\b(\w)/g).join('').toLowerCase()
     const embed = createNewTypeEmbed(7, `Create new event type: ${typeName}`,
         `React with ✅ to finalize your event type and create it. React with ❌ to cancel.`)
-    embed.addField(`Game`, game, true)
-    embed.addField(`Type Name`, typeName, true)
-    embed.addField(`ID`, typeId, true)
-    embed.addField(`Shortname`, shortname, true)
-    embed.addField(`Emote`, emote, true)
-    embed.addField(`Color`, color, true)
-    embed.addField(`Default Max Members`, maxString, true)
-    embed.addField(`Icon`, icon, true)
+        embed.addFields([
+            { name: `Game`, value: game, inline: true },
+            { name: `Type Name`, value: typeName, inline: true },
+            { name: `ID`, value: typeId, inline: true },
+            { name: `Shortname`, value: shortname, inline: true },
+            { name: `Emote`, value: emote, inline: true },
+            { name: `Color`, value: color, inline: true },
+            { name: `Default Max Members`, value: maxString, inline: true },
+            { name: `Icon`, value: icon, inline: true }
+        ])
     
     const dummyEventDate = new Date()
     const fakeEventEmbed = getEventEmbedWithDetails(null, typeName, null, color, icon, 9001,
@@ -312,7 +317,7 @@ async function sendCreateNewTypeFinal(originalMessage, prevBotMessage, game, typ
         max, ["Tom Cruise", "Voldemort"], "Tom Cruise, Voldemort", "None", "Claude 5", null, false)
 
     if(!prevBotMessage) {
-        sendFunction = () => originalMessage.channel.send(embed)
+        sendFunction = () => originalMessage.channel.send({ embeds: [embed]})
     } 
     else {
         prevBotMessage.reactions.removeAll()
@@ -350,10 +355,11 @@ async function sendCreateNewTypeFinal(originalMessage, prevBotMessage, game, typ
 
 
 async function sendCreateNewSubTypeMessage(msg) {
-    const embed = new Discord.MessageEmbed()
+    const descriptions = await getEventGameTypeDescriptions()
+    const embed = new Discord.EmbedBuilder()
         .setTitle(`Create New Subtype`)
         .setDescription("Choose a game to edit:")
-        .addField('Games', await getEventGameTypeDescriptions())
+        .addFields([{name: 'Games', value: descriptions}])
     let botMessage = await sendMessage(msg, embed)
     
     let gameTypes = await getEventGames()
@@ -381,10 +387,11 @@ async function sendCreateNewSubTypeMessage(msg) {
 }
 
 async function sendCreateNewSubTypeType(originalMessage, prevBotMessage, game) {
-    const embed = new Discord.MessageEmbed()
+    const descriptions = await getEventEmoteDescriptions(game)
+    const embed = new Discord.EmbedBuilder()
         .setTitle(`Create New Subtype`)
         .setDescription("Choose a type to add a subtype to:")
-        .addField('Games', await getEventEmoteDescriptions(game))
+        .addFields([{name: 'Games', value: descriptions}])
     prevBotMessage.reactions.removeAll()
     let botMessage = await prevBotMessage.edit(embed)
     
@@ -414,7 +421,7 @@ async function sendCreateNewSubTypeType(originalMessage, prevBotMessage, game) {
 
 
 async function sendCreateNewSubTypeName(originalMessage, prevBotMessage, game, typeId) {
-    const embed = new Discord.MessageEmbed()
+    const embed = new Discord.EmbedBuilder()
         .setTitle(`Create New Subtype`)
         .setDescription("Type your subtype name:")
     prevBotMessage.reactions.removeAll()
@@ -430,10 +437,11 @@ async function sendCreateNewSubTypeName(originalMessage, prevBotMessage, game, t
 
 async function sendCreateNewSubTypeEmote(originalMessage, prevBotMessage, game, typeId, subtype) {
     let eventType = await getEventTypeById(typeId)
-    const embed = new Discord.MessageEmbed()
+    const descriptions = getOptionDescriptions(eventType)
+    const embed = new Discord.EmbedBuilder()
         .setTitle(`Create New Subtype ${subtype}`)
         .setDescription("React with the emote you want to use for this subtype. It must be unique and cannot be one of the previously used options:")
-        .addField("Current options: ", getOptionDescriptions(eventType))
+        .addFields([{name: 'Current options:', value: descriptions}])
     prevBotMessage.reactions.removeAll()
     let botMessage = await prevBotMessage.edit(embed)
     let eventOptions = await getEventOptionEmotes(eventType)
@@ -460,7 +468,7 @@ async function sendCreateNewSubTypeEmote(originalMessage, prevBotMessage, game, 
 }
 
 async function sendCreateNewSubTypeMax(originalMessage, prevBotMessage, game, typeId, subtype, emote) {
-    const embed = new Discord.MessageEmbed()
+    const embed = new Discord.EmbedBuilder()
         .setTitle(`Create New Subtype "${subtype}"`)
         .setDescription( `Give your subtype a default max members. If you do not want to have a default max, then enter -1.`)
     prevBotMessage.reactions.removeAll()
@@ -479,14 +487,16 @@ async function sendCreateNewSubTypeMax(originalMessage, prevBotMessage, game, ty
 
 async function sendCreateNewSubTypeFinal(originalMessage, prevBotMessage, game, typeId, subtype, emote, maxMembers) {
     let shortname = subtype.match(/\b(\w)/g).join('').toLowerCase()
-    const embed = new Discord.MessageEmbed()
+    const embed = new Discord.EmbedBuilder()
         .setTitle(`Create New Subtype`)
         .setDescription("If the items below look good, react with ✅ to finalize")
-        .addField(`Type`, `${typeId}`, true)
-        .addField(`Subtype`, `${subtype}`, true)
-        .addField(`Shortname`, `${shortname}`, true)
-        .addField(`Emote`, `${emote}`, true)
-        .addField(`Default Max Members`, `${maxMembers}`, true)
+        .addFields([
+            { name: `Type`, value: `${typeId}`, inline: true},
+            { name: `Subtype`, value: `${subtype}`, inline: true},
+            { name: `Shortname`, value: `${shortname}`, inline: true},
+            { name: `Emote`, value: `${emote}`, inline: true},
+            { name: `Default Max Members`, value: `${maxMembers}`, inline: true}
+        ])
         
     prevBotMessage.reactions.removeAll()
     let botMessage = await prevBotMessage.edit(embed)
@@ -574,11 +584,11 @@ function createNewTypeEmbed(stepNum, title, description, color) {
     if(!color) {
         color = 0x03a9f4
     }
-    return new Discord.MessageEmbed()
+    return new Discord.EmbedBuilder()
         .setTitle(title)
         .setDescription(description)
         .setColor(color)
-        .setFooter(`Step ${stepNum} of 6 • ${stepOneStatus}Game / ${stepTwoStatus}Name / ${stepThreeStatus}Emote / ${stepFourStatus}Color / ${stepFiveStatus}Icon / ${stepSixStatus}Members `)
+        .setFooter({ text: `Step ${stepNum} of 6 • ${stepOneStatus}Game / ${stepTwoStatus}Name / ${stepThreeStatus}Emote / ${stepFourStatus}Color / ${stepFiveStatus}Icon / ${stepSixStatus}Members `})
 }
 
 async function getEventGameTypeDescriptions() {

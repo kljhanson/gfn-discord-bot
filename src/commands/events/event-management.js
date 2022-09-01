@@ -2,7 +2,7 @@ const Discord = require('discord.js')
 const { parseDateString, addMinutesToDate, getCurrentUTCDate } = require('../../lib/date-utils')
 const { getEventById, JoinTypes, saveEvent, getEventsWithTimeframe } = require('../../models/event-model')
 const { getEventsChannel, sendEventEmbed, handleCancel } = require('./event-utils')
-const { getEventEmbed } = require('./event-ui')
+const { getEventEmbed } = require('../../lib/events/event-ui')
 const { getConfiguration } = require('../../models/configuration-model')
 const { getBotUser } = require('../../lib/global-vars')
 const JoinEmotes = require('../../../assets/event-emotes.json')
@@ -68,7 +68,7 @@ function reviewEventConflicts(originalMessage, event, user, joinType) {
                 user.send(`One or more events may conflict with the event you just ${activityText}: **${event.getMiniTitle()}**
                 \nPlease review the following events to make sure they will not be an issue with your schedule and make any needed adjustments.`)
                 events.forEach(async event => {
-                    user.send(await getEventEmbed(event, originalMessage.guild))
+                    user.send({ embeds: [await getEventEmbed(event, originalMessage.guild)] })
                 })
             }
         })
@@ -85,7 +85,7 @@ function updateEventEmbed(message, event) {
                     if(eventField.value == event.id) {
                         logger.info('found matching event message: '+message)
                         const embed = await getEventEmbed(event, message.guild)
-                        message.edit(embed)
+                        message.edit({ embeds: [embed] })
                     }
                 }
             })
@@ -118,8 +118,8 @@ function updateChannelPermissions(message, event, user, isJoined = false) {
     const channelName = event.getChannelName()
     const eventChannel = message.guild.channels.cache.filter(channel => channel.name == channelName).first()
     if(eventChannel) {
-        eventChannel.updateOverwrite(user.id, {
-            VIEW_CHANNEL: isJoined ? true : null
+        eventChannel.permissionOverwrites.edit(user.id, {
+            ViewChannel: isJoined ? true : null
         })
     }
 }
@@ -215,10 +215,10 @@ async function editEventWithId(originalMessage, eventId, editType) {
     if(editType) {
         editEvent(originalMessage, event, editType)
     } else {
-        const embed = new Discord.MessageEmbed()
+        const embed = new Discord.EmbedBuilder()
             .setTitle(`Edit Event ${event.getMiniTitle()}`)
             .setDescription(`Choose what field you would like by reacting with the related emote:`)
-            .addField(`Edit Options:`, `✒ = Name\n🏷 = Description\n🎟 = Max / Limit\n⌚ = Time`)
+            .addFields({name: `Edit Options:`, value: `✒ = Name\n🏷 = Description\n🎟 = Max / Limit\n⌚ = Time`})
         sendMessage(originalMessage, embed).then(botMessage => {
             botMessage.react('✒')
             botMessage.react('🏷')
@@ -277,7 +277,7 @@ async function editEvent(originalMessage, event, editType) {
 
 function sendEditMessage(originalMessage, event, editType, editText) {
     const embed = editEventEmbed(`Edit ${editType.toLowerCase()} for event ${event.getMiniTitle()}`, editText)
-    originalMessage.channel.send(embed).then(botMessage => {
+    originalMessage.channel.send({ embeds: [embed]}).then(botMessage => {
         const collector = new Discord.MessageCollector(originalMessage.channel, m => m.author.id === originalMessage.author.id, { time: 60000 });
         collector.on('collect', message => {
             if (!handleCancel(message, botMessage)) {
@@ -354,7 +354,7 @@ function editEventEmbed(title, description, color) {
     if(!color) {
         color = 0x03a9f4
     }
-    return new Discord.MessageEmbed()
+    return new Discord.EmbedBuilder()
         .setTitle(title)
         .setDescription(description)
         .setColor(color)

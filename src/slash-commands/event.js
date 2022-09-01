@@ -1,0 +1,241 @@
+const Discord = require('discord.js');
+const { parseDateString } = require('../lib/date-utils')
+const { Event, getActiveEvents, getEventById } = require('../models/event-model')
+const { getEventGames, getEventTypesByGame, getEventTypeById } = require('../models/event-types-model');
+const { getEventEmbed } = require('../lib/events/event-ui')
+const logger = require('../lib/logger');
+const { createNewEvent, deleteEvent } = require('../lib/events/event-management');
+const { toJson } = require('../lib/utils');
+
+async function autofillEventCreate(interaction) {
+    logger.debug("we autocompleting")
+    const focusedOption = interaction.options.getFocused(true);
+    logger.debug(`focused option: ${focusedOption.name}`)
+
+    if(focusedOption.name === "game") {
+        logger.debug('yep')
+        let eventGames = await getEventGames()
+        let options = []
+        if(eventGames && eventGames.length > 0) {
+            options = eventGames.map(eg => ({value: eg.name, name: eg.name}))
+        } else {
+            options = [
+                { name: 'Destiny 2', value: 'Destiny 2' },
+                { name: 'Rocket League', value: 'Rocket League' },
+                { name: 'Other Games', value: 'Other' },
+            ]
+        }
+        const filtered = options.filter(choice => choice.name.toLowerCase().includes(focusedOption.value.toLowerCase()))
+        logger.debug(`filtered options ${filtered}`)
+        await interaction.respond(filtered)
+    }
+
+    if(focusedOption.name === "type") {
+        logger.debug('yep')
+        const selectedGame = interaction.options.getString("game")
+        let eventTypes = await getEventTypesByGame(selectedGame)
+        if(eventTypes && eventTypes.length > 0) {
+            const options = eventTypes.map(et => ({value: et.id, name: et.name})).filter(choice => choice.name.toLowerCase().includes(focusedOption.value.toLowerCase()))
+            logger.debug(`filtered options ${options}`)
+            await interaction.respond(options)
+        }
+    }
+
+    if(focusedOption.name === "subtype") {
+        logger.debug('yep')
+        const selectedGame = interaction.options.getString("game")
+        const selectedType = interaction.options.getString("type")
+        const eventType = await getEventTypeById(selectedType)
+        let subtypeOptions = []
+        if(eventType) {
+            eventType.options.forEach(option => {
+                subtypeOptions.push({value: option.name, name: option.name})
+            })
+            if(subtypeOptions && subtypeOptions.length > 0) {
+                const options = subtypeOptions.filter(choice => choice.name.toLowerCase().includes(focusedOption.value.toLowerCase()))
+                logger.debug(`filtered options ${options}`)
+                await interaction.respond(options)
+            }
+        }
+    }
+}
+
+async function handleEventCreate(interaction) {
+    logger.debug("create new event")
+    const game = interaction.options.getString("game")
+    const type = interaction.options.getString("type")
+    const subtype = interaction.options.getString("subtype")
+    const name = interaction.options.getString("name")
+    const description = interaction.options.getString("description")
+    const date = interaction.options.getString("date")
+    const maxmembers = interaction.options.getInteger("maxmembers")
+    let members = [interaction.user.username]
+    for(var i = 1; i < 6; i++) {
+        const attendee = interaction.options.getUser(`attendee${i}`)
+        if(attendee && attendee.username && attendee.username.length > 0
+            && attendee.username !== interaction.user.username) {
+                members.push(attendee.username)
+        }
+    }
+
+    const startDate = parseDateString(date)
+    if (!startDate) {
+        await interaction.reply("hmm, that didn't work, try to keep the date format simple and try again")
+    }  else {
+        const eventType = await getEventTypeById(type)
+        const finalMaxMembers = maxmembers ? maxmembers : eventType.defaultMax
+        const eventDetails = {
+            id: -1,
+            name: name,
+            description: description,
+            game: game,
+            type: type,
+            subtype: subtype,
+            eventDate: startDate,
+            maxMembers: finalMaxMembers,
+            members: members,
+            alternates: [],
+            interested: [],
+            creator: interaction.user.username,
+            createDate: Date.now(),
+            updatedDate: Date.now(),
+            guildId: interaction.guild.id,
+            status: 'Active',
+            eventChannelId: 'tbd'
+        }
+        const event = new Event(eventDetails)
+        logger.debug("event:")
+        logger.debug(event)
+        const embed = await getEventEmbed(event)
+        logger.debug("got embed")
+        
+        const cancelButton = new Discord.ButtonBuilder()
+            .setCustomId('event_cancel')
+            .setLabel('Cancel')
+            .setStyle(Discord.ButtonStyle.Secondary)
+
+        const createButton = new Discord.ButtonBuilder()
+            .setCustomId('event_create')
+            .setLabel('Create')
+            .setStyle(Discord.ButtonStyle.Primary)
+            
+        const buttons = new Discord.ActionRowBuilder().addComponents(cancelButton, createButton);
+        
+        await interaction.reply({ content: 'Create the following event:', embeds: [embed], components: [buttons] })
+            .then((message) => {
+                logger.debug("add message collector")
+                const filter = i => {
+                    i.deferUpdate();
+                    return i.user.id === interaction.user.id;
+                };
+                
+                message.awaitMessageComponent({ filter, componentType: Discord.ComponentType.Button, time: 60000 })
+                    .then(interaction => {
+                        logger.debug("clicked button good")
+                        createNewEvent(interaction, eventDetails)
+                    }).catch(err => console.log(`No interactions were collected.`));
+            })
+    }
+}
+
+async function autofillEventDelete(interaction) {
+    const focusedOption = interaction.options.getFocused(true);
+
+    if(focusedOption.name === "eventid") {
+        const events = await getActiveEvents(interaction.guild.id)
+        let options = []
+        logger.debug(`found ${events.length} active events`)
+        if(events && events.length > 0) {
+            options = events.map(event => ({value: parseInt(event.id), name: event.getMiniTitle()}))
+        }
+
+        logger.debug(`prepared the following options`)
+        logger.debug(toJson(options))
+        const filtered = options.filter(choice => choice.name.toLowerCase().includes(focusedOption.value.toLowerCase()))
+        logger.debug(`filtered options ${filtered}`)
+        if(filtered.length > 25) {
+            await interaction.respond(filtered.slice(0, 24))
+        } else {
+            await interaction.respond(filtered)
+        }
+    }
+}
+
+async function handleEventDelete(interaction) {
+    const eventId = interaction.options.getInteger('eventid')
+    const event = await getEventById(interaction.guild.id, `${eventId}`)
+    const embed = await getEventEmbed(event)
+    logger.debug("got embed")
+    
+    const cancelButton = new Discord.ButtonBuilder()
+        .setCustomId('event_cancel')
+        .setLabel('Hold up')
+        .setStyle(Discord.ButtonStyle.Secondary)
+
+    const deleteButton = new Discord.ButtonBuilder()
+        .setCustomId('event_delete')
+        .setLabel('Yeet')
+        .setStyle(Discord.ButtonStyle.Danger)
+        
+    const buttons = new Discord.ActionRowBuilder().addComponents(cancelButton, deleteButton);
+    
+    await interaction.reply({ content: 'Delete the following event?', embeds: [embed], components: [buttons] })
+        .then((message) => {
+            logger.debug("add message collector")
+            const filter = i => {
+                i.deferUpdate();
+                return i.user.id === interaction.user.id;
+            };
+            
+            message.awaitMessageComponent({ filter, componentType: Discord.ComponentType.Button, time: 60000 })
+                .then(int => {
+                    logger.debug("delete button pressed")
+                    deleteEvent(interaction, eventId)
+                }).catch(err => logger.error(err));
+        })
+}
+
+module.exports = {
+	data: new Discord.SlashCommandBuilder()
+        .setName('event')
+        .setDescription('Interact with clan events')
+        .addSubcommand(createCommand => 
+            createCommand.setName("create").setDescription("Create a new clan event")
+                .addStringOption(option => option.setName('game').setDescription('Game').setRequired(true).setAutocomplete(true))
+                .addStringOption(option => option.setName('type').setDescription('Event Type').setRequired(true).setAutocomplete(true))
+                .addStringOption(option => option.setName('subtype').setDescription('Event Subtype').setRequired(true).setAutocomplete(true))
+                .addStringOption(option => option.setName('name').setDescription('Event Name').setRequired(true))
+                .addStringOption(option => option.setName('description').setDescription('Event Description').setRequired(true))
+                .addStringOption(option => option.setName('date').setDescription(`Event Date -- Ex: 01-01-2020 8pm CT; Friday 8pm PT; Timezones: PT, MT, CT, ET`).setRequired(true))
+                .addIntegerOption(option => option.setName('maxmembers').setDescription('Max Member Count').setRequired(false))
+                .addUserOption(option => option.setName('attendee1').setDescription('Attendee 1').setRequired(false))
+                .addUserOption(option => option.setName('attendee2').setDescription('Attendee 2').setRequired(false))
+                .addUserOption(option => option.setName('attendee3').setDescription('Attendee 3').setRequired(false))
+                .addUserOption(option => option.setName('attendee4').setDescription('Attendee 4').setRequired(false))
+                .addUserOption(option => option.setName('attendee5').setDescription('Attendee 5').setRequired(false))
+        )
+        .addSubcommand(deleteCommand => 
+            deleteCommand.setName("delete").setDescription("Delete a clan event")
+                .addIntegerOption(option => option.setName('eventid').setDescription('Event ID').setRequired(true).setAutocomplete(true))
+        ),
+	async execute(interaction) {
+        const subcommand = interaction.options.getSubcommand()
+
+        if (interaction.isAutocomplete()) {
+            if(subcommand === 'create') {
+                await autofillEventCreate(interaction)
+            } else if(subcommand === 'delete') {
+                await autofillEventDelete(interaction)
+            }
+        }
+
+        // Must handle interactions (command ones) inside the if statement
+        if (interaction.isCommand()) {
+            if(subcommand === 'create') {
+                await handleEventCreate(interaction)
+            } else if(subcommand === 'delete') {
+                await handleEventDelete(interaction)
+            }
+        }
+	},
+};

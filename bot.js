@@ -1,5 +1,7 @@
 const Discord = require('discord.js')
+const { REST } = require('@discordjs/rest');
 const fs = require("fs")
+const path = require('node:path');
 const {getConfig} = require('./src/lib/config')
 const dbUtils = require('./src/models/db-utils')
 const { initEventTypes, initEventGames } = require('./src/models/event-types-model')
@@ -12,8 +14,37 @@ const { executeSettingsMessage } = require('./src/commands/settings')
 const { executeGeneralMessage } = require('./src/commands/general')
 const { executeEventTypeMessage } = require('./src/commands/event-types')
 const { handleReactionRoles, executeReactionRoleMessage } = require('./src/commands/roles')
-const client = new Discord.Client({ partials: ['MESSAGE', 'CHANNEL', 'REACTION'] })
+
+// initialize Discord client
+const client = new Discord.Client({ 
+	intents: [
+		Discord.GatewayIntentBits.GuildPresences,
+		Discord.GatewayIntentBits.GuildMembers,
+		Discord.GatewayIntentBits.GuildEmojisAndStickers,
+		Discord.GatewayIntentBits.GuildMembers,
+		Discord.GatewayIntentBits.GuildMessageReactions,
+		Discord.GatewayIntentBits.GuildMessages,
+		Discord.GatewayIntentBits.Guilds,
+		Discord.GatewayIntentBits.MessageContent,
+		Discord.GatewayIntentBits.DirectMessages
+	],
+	partials: [Discord.Partials.Message, Discord.Partials.Channel, Discord.Partials.Reaction]
+})
 const logger = require('./src/lib/logger')
+
+const commands = [];
+const commandsPath = path.join(__dirname, 'src/slash-commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+client.commands = new Discord.Collection();
+
+for (const file of commandFiles) {
+	const filePath = path.join(commandsPath, file);
+	logger.debug(filePath)
+	const command = require(filePath);
+	commands.push(command.data.toJSON());
+	client.commands.set(command.data.name, command);
+}
+
 
 const EVENT_CLEANUP_INTERVAL = 1 * 60 * 1000
 const EVENT_NOTIFICATION_INTERVAL = 1 * 60 * 1000
@@ -27,7 +58,8 @@ logger.info(`bot initialized using ${process.env.NODE_ENV} environment`)
 dbUtils.initMongo()
 
 // message index
-client.on('message', msg => {
+client.on('messageCreate', msg => {
+	logger.debug(msg)
     executeMemeMessages(msg)
     executeIronBannerMessage(msg)
 	executeEventMessage(msg)
@@ -49,6 +81,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
 			return;
 		}
     }
+	logger.debug(`${reaction.message.author}'s message "${reaction.message.content}" gained a reaction!`)
     if(user.id !== client.user.id && reaction.message.author.id === client.user.id) {
 		executeEventReaction(reaction, user)
     } else if(user.id !== client.user.id) {
@@ -85,6 +118,39 @@ client.on('ready', () => {
 	executeDailyNotifications(client)
 })
 
+client.on('interactionCreate', async interaction => {
+	logger.debug(interaction.commandName)
+	logger.debug(interaction.commandType)
+	logger.debug(interaction.isAutocomplete())
+	logger.debug(interaction.isChatInputCommand())
+
+	// filter out interactions we don't care about
+	if (!interaction.isChatInputCommand()
+		&& !interaction.isAutocomplete()) return;
+
+	let commandName = interaction.commandName
+	const command = interaction.client.commands.get(commandName);
+
+	if (!command) return;
+
+	try {
+		logger.debug(`execute command: ${commandName}`)
+		await command.execute(interaction);
+	} catch (error) {
+		console.error(error);
+		if(interaction) {
+			await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+		}
+	}
+});
+
+
 // start bot
 const botToken = fs.readFileSync(getConfig().tokenPath).toString()
 client.login(botToken)
+
+const rest = new REST({ version: '10' }).setToken(botToken);
+
+rest.put(Discord.Routes.applicationCommands("744202858429153291"), { body: commands })
+	.then(() => console.log('Successfully registered application commands.'))
+	.catch(console.error);

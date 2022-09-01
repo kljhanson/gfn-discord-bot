@@ -197,7 +197,7 @@ const Event = mongoose.model('event', eventSchema);
 function saveEvent(event) {
     event.save(function(err, updatedEvent) {
         if(err) return logger.error(err)
-        logger.info(`saved event ${event.eventId}`)
+        logger.info(`saved event ${updatedEvent.eventId}`)
     })
 }
 

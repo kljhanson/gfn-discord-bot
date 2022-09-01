@@ -71,7 +71,7 @@ async function createReactionRoleStart(originalMessage) {
         sendReply(originalMessage, "Invalid parameters. Please provide both channel and messageId with the following format: `gfn/roles create #<channelName> <messageId>`")
     }
     else {
-        const embed = new Discord.MessageEmbed()
+        const embed = new Discord.EmbedBuilder()
             .setTitle(`Create New Reaction Role`)
             .setDescription("Type or mention the name of the role you want to configure")
         let botMessage = await sendMessage(originalMessage, embed)
@@ -89,7 +89,7 @@ async function createReactionRoleStart(originalMessage) {
 }
 
 async function createReactionRoleEmote(originalMessage, prevBotMessage, channelId, messageId, role) {
-    const embed = new Discord.MessageEmbed()
+    const embed = new Discord.EmbedBuilder()
         .setTitle(`Create New Reaction Role: ${role}`)
         .setDescription(`React with the emote that will grant this role for the message (Id: ${messageId}, channelId: ${channelId})`)
     let botMessage = await prevBotMessage.edit(embed)

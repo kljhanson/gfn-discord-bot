@@ -16,9 +16,19 @@ function matchMessage(srcMessage, ...commands) {
     return (re.test(srcMessage.content) && retVal)
 }
 
+function replyImage(srcMessage, imgUrl, content) {
+    return srcMessage.reply({
+        content: content,
+        files: [{
+            attachment: imgUrl,
+            name: imgUrl
+        }]
+    })
+}
+
 function sendImage(srcMessage, imgUrl) {
-    // return srcMessage.channel.send(new Discord.MessageEmbed().setImage(imgUrl))
-    return srcMessage.channel.send("",  {files: [{
+    // return srcMessage.channel.send(new Discord.EmbedBuilder().setImage(imgUrl))
+    return srcMessage.channel.send({files: [{
         attachment: imgUrl,
         name: imgUrl
      }]})
@@ -28,8 +38,16 @@ function sendMessage(srcMessage, txtMessage) {
     return srcMessage.channel.send(txtMessage)
 }
 
+function sendEmbed(srcMessage, embed, optionalMessage) {
+    return srcMessage.channel.send({ embeds: [embed] })
+}
+
 function sendReply(srcMessage, txtMessage) {
     return srcMessage.reply(txtMessage)
+}
+
+function replyEmbed(srcMessage, embed, optionalMessage) {
+    return srcMessage.reply({ embeds: [embed] })
 }
 
 function getMessageParams(srcMessage, command, paramNum, paramsAsString = false) {
@@ -96,7 +114,10 @@ module.exports = {
     matchMessage: matchMessage,
     sendImage: sendImage,
     sendMessage: sendMessage,
+    sendEmbed: sendEmbed,
     sendReply: sendReply,
+    replyEmbed: replyEmbed,
+    replyImage: replyImage,
     getMessageParams: getMessageParams,
     isBlessed: isBlessed,
     collectMessageReplies: collectMessageReplies,

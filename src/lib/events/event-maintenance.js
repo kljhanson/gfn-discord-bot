@@ -1,10 +1,10 @@
 const { saveEvent, getExpiredEvents, getEventById, getActiveEvents } = require('../../models/event-model')
-const { getEventsChannel, sendEventEmbed } = require('./event-utils')
+const { getEventsChannel } = require('./event-channels')
 const { getConfiguration } = require('../../models/configuration-model')
 const logger = require('../../lib/logger')
 const { getBotUser } = require('../../lib/global-vars')
 const { sendReply } = require('../../lib/discord-utils')
-const { getEventEmbed } = require('../../lib/events/event-ui')
+const { getEventEmbed, sendEventEmbed } = require('./event-ui')
 const { getEventGames } = require('../../models/event-types-model')
 
 async function refreshEventsChannel(originalMessage) {
@@ -157,10 +157,26 @@ async function updateEventChannel(event, eventsChannel, guild, position) {
     }
 }
 
+async function updateEventEmbed(message, event) {
+    const config = await getConfiguration(message.guild.id)
+    const eventsChannel = getEventsChannel(message.guild, config, event.game)
+    const messages = await eventsChannel.messages.fetch()
+    messages.forEach(async message => {
+        if(message.author.id == getBotUser().id && message.embeds && message.embeds.length > 0) {
+            const eventField = message.embeds[0].fields.filter(field => field.name === "Event ID")[0]
+            if(eventField.value == event.id) {
+                logger.info('found matching event message: '+message)
+                const embed = await getEventEmbed(event, message.guild)
+                message.edit({ embeds: [embed] })
+            }
+        }
+    })
+}
+
 module.exports = {
     cleanupExpiredEvents: cleanupExpiredEvents,
     cleanupEvent: cleanupEvent,
-    deleteEvent: deleteEvent,
     updateEventChannel: updateEventChannel,
-    refreshEventsChannel: refreshEventsChannel
+    refreshEventsChannel: refreshEventsChannel,
+    updateEventEmbed: updateEventEmbed
 }

@@ -2,7 +2,7 @@ const Discord = require('discord.js')
 const { parseDateString, addMinutesToDate, getCurrentUTCDate, getCurrentUTCDateToTheMinute, toTimeString } = require('../../lib/date-utils')
 const { getEventById, JoinTypes, getEventsStartingAt, getDailyEvents} = require('../../models/event-model')
 const { getEventsChannel, sendEventEmbed, handleCancel } = require('./event-utils')
-const { getEventEmbed } = require('./event-ui')
+const { getEventEmbed } = require('../../lib/events/event-ui')
 const { getConfiguration } = require('../../models/configuration-model')
 const { getNotificationPreferences, getUserPreference } = require('../../models/user-preferences-model')
 const { getBotUser } = require('../../lib/global-vars')
@@ -35,7 +35,7 @@ async function processDailyNotifications(client) {
                     member.user.send(description)
                     events.forEach(async event => {
                         const embed = await getEventEmbed(event, guild)
-                        member.user.send(embed)
+                        member.user.send({ embeds: [embed]})
                     })
                 } else {
                     logger.info(`No events found for today for user: ${preference.userName}`)
@@ -77,7 +77,7 @@ async function processEventNotifications(client) {
                         logger.info(`skipping DM to ${user.username} as they have opted out of receiving direct messages`)
                     } else {
                         user.send(`The following which you have joined is starting in **15 minutes**. Please be ready to join up.`)
-                        user.send(await getEventEmbed(event, guild))
+                        user.send({ embeds: [await getEventEmbed(event, guild)] })
                     }
                 })
             })
