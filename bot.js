@@ -110,6 +110,13 @@ client.on('messageReactionRemove', async (reaction, user) => {
 
 client.on('ready', () => {
 	setBotUser(client.user)
+	
+	const rest = new REST({ version: '10' }).setToken(botToken);
+
+	rest.put(Discord.Routes.applicationCommands(client.user.id), { body: commands })
+	.then(() => console.log('Successfully registered application commands.'))
+	.catch(console.error);
+
 	initEventTypes()
 	initEventGames()
 	setInterval(cleanupExpiredEvents, EVENT_CLEANUP_INTERVAL, client)
@@ -150,9 +157,3 @@ client.on('interactionCreate', async interaction => {
 // start bot
 const botToken = fs.readFileSync(getConfig().tokenPath).toString()
 client.login(botToken)
-
-const rest = new REST({ version: '10' }).setToken(botToken);
-
-rest.put(Discord.Routes.applicationCommands("744202858429153291"), { body: commands })
-	.then(() => console.log('Successfully registered application commands.'))
-	.catch(console.error);
