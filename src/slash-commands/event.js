@@ -8,6 +8,7 @@ const { createNewEvent, deleteEvent } = require('../lib/events/event-management'
 const { toJson, isNumeric } = require('../lib/utils');
 const { getEventIdFromChannel } = require('../lib/events/event-utils');
 const { refreshEventsChannel } = require('../lib/events/event-maintenance');
+const { handleJoinAction } = require('../lib/events/event-members');
 
 async function autofillEventCreate(interaction) {
     logger.debug("we autocompleting")
@@ -96,7 +97,7 @@ async function handleEventCreate(interaction) {
         await interaction.reply("hmm, that didn't work, try to keep the date format simple and try again")
     }  else {
         const eventType = await getEventTypeById(type)
-        const finalMaxMembers = maxmembers ? maxmembers : eventType.defaultMax
+        const finalMaxMembers = maxmembers ? maxmembers : (eventType.defaultMax ? eventType.defaultMax : 20)
         const eventDetails = {
             id: -1,
             name: name,
@@ -235,12 +236,22 @@ async function handleEventJoin(interaction, joinType) {
 
     const event = await getEventById(interaction.guild.id, `${eventId}`)
     if(joinUsers.length > 0 
+        && (joinUsers.length == 1 && joinUsers[0].username !== interaction.member.username)
         && interaction.member.username !== event.creator 
         && !interaction.member.permissions.has(Discord.PermissionFlagsBits.Administrator)) {
         return interaction.reply({content: `You are not the creator of the event and do not have permission to alter membership: _${event.getMiniTitle()}_`, ephemeral: true })
     } else {
-        joinUsers.forEach(joinUser => handleJoinAction(interaction, joinType, joinUser, event))
-        interaction.reply(`Added ${joinUsers.map(m => `<@${m.id}>`).join(', ')} to event: **${event.getMiniTitle()}**`)
+        joinUsers.forEach(joinUser => handleJoinAction(interaction, joinType, joinUser.user, event))
+        if(joinType !== JoinTypes.LEAVE) {
+            if(joinUsers.length == 1 && joinUsers[0].username === interaction.member.username) {
+                interaction.reply({ content: `You have joined event: **${event.getMiniTitle()}**`, ephemeral: true })
+            }
+            else {
+                interaction.reply(`Added or adjusted membership for these users ${joinUsers.map(m => `<@${m.id}>`).join(', ')} for event: **${event.getMiniTitle()}**`)
+            }
+        } else {
+            interaction.reply({ content: `You have left event: **${event.getMiniTitle()}** `, ephemeral: true })
+        }
     }
 }
 
