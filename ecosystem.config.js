@@ -3,6 +3,7 @@ module.exports = {
         {
             name: "gfn-bot-beta",
             script: "./bot.js",
+            interpreter : 'node@16.17.0',
             watch: true,
             ignore_watch: ["node_modules"],
             env: {

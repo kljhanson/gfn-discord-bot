@@ -51,6 +51,10 @@ function toTimeString(date, format, zone, abbreviation) {
     return moment(date).tz(timezone).format(dateFormat)
 }
 
+function toISOString(date) {
+    return moment(date).toISOString()
+}
+
 function getCurrentUTCDate(date) {
     let momentDate = moment()
     if(date) {
@@ -91,5 +95,6 @@ module.exports = {
     getCurrentUTCDate: getCurrentUTCDate,
     addMinutesToDate: addMinutesToDate,
     toTimeString: toTimeString,
+    toISOString: toISOString,
     getCurrentUTCDateToTheMinute: getCurrentUTCDateToTheMinute
 }

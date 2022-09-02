@@ -87,11 +87,11 @@ function executeIronBannerMessage(msg) {
         if(teammates.length > 0)
             title = player+" has not yet played with..."
         
-        const embed = new Discord.MessageEmbed()
+        const embed = new Discord.EmbedBuilder()
             .setTitle(title)
             .setColor(0xfee12b)
             .setDescription(teammates.join(", "))
-        msg.channel.send(embed)
+        msg.channel.send({ embeds: [embed]})
     }
 
     if(msg.content.startsWith('gfn/ib matched') || msg.content.startsWith('gfn/ib teammates')) {
@@ -106,11 +106,11 @@ function executeIronBannerMessage(msg) {
         if(teammates.length > 0)
             title = player+" has played with..."
         
-        const embed = new Discord.MessageEmbed()
+        const embed = new Discord.EmbedBuilder()
             .setTitle(title)
             .setColor(0x10a5f5)
             .setDescription(teammates.join(", "))
-        msg.channel.send(embed)
+        msg.channel.send({ embeds: [embed]})
     }
 
     if(msg.content.startsWith('gfn/ib get teams')) {
@@ -140,7 +140,7 @@ function getRandomTeamEmbed(randTeams, accepted) {
         utils.shuffleArray(saladquotes)
         description = '_"'+saladquotes.pop()+'"_'
     }
-    const embed = new Discord.MessageEmbed()
+    const embed = new Discord.EmbedBuilder()
         .setTitle(title)
         .setColor(color)
 
@@ -150,13 +150,13 @@ function getRandomTeamEmbed(randTeams, accepted) {
     }
     
     Object.keys(randTeams).forEach(teamName => {
-        embed.addField(teamName, randTeams[teamName].join(', '))
+        embed.addFields([{name: teamName, value: randTeams[teamName].join(', ')}])
     })
     return embed
 }
 
 function sendRandomTeams(embed, originalMessage, count, randomTeams) {
-    originalMessage.channel.send(embed).then(embedMessage => {
+    originalMessage.channel.send({ embeds: [embed]}).then(embedMessage => {
         embedMessage.react('🔄')
         embedMessage.react('✅')
 
