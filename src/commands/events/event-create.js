@@ -5,11 +5,12 @@ const { getEventGames, getEventTypes, getEventTypesByGame, getEventTypeById, get
 const { sendMessage, sendReply } = require('../../lib/discord-utils')
 const { isNumeric } = require('../../lib/utils')
 const { getEventEmbed } = require('../../lib/events/event-ui')
-const { updateEventChannel, reorderEventChannels } = require('./event-cleanup')
 const { getEventsChannel, sendEventEmbed, handleCancel } = require('./event-utils')
 const { getConfiguration, getGameEventChannel } = require('../../models/configuration-model')
 const { getBotUser } = require('../../lib/global-vars')
 const logger = require('../../lib/logger')
+const { getEventIdFromChannel } = require('../../lib/events/event-utils')
+const { reorderEventChannels } = require('../../lib/events/event-channels')
 
 function startCreateNewEvent(msg, type) {
     sendCreateEventGame(msg, type)
@@ -598,12 +599,8 @@ async function createEventChannel(originalMessage, eventChannel, event, user) {
     logger.debug(`channels`)
     logger.debug(channels)
     for(const channel of channels) {
-        if(position < 0 && channel.name.startsWith('id-')) {
-            const re = new RegExp(`^id-(\\d+)-.+`, "g");
-            let matches = re.exec(channel.name)
-            logger.debug(`matches: ${matches}`)
-            let eventId = matches[1]
-            logger.debug(`matched eventId: ${eventId}`)
+        const eventId = getEventIdFromChannel(channel.name)
+        if(position < 0 && eventId > -1) {
             let otherEvent = await getEventById(channel.guild.id, eventId)
             logger.debug(`compare ${event.eventDate} to ${otherEvent.eventDate}`)
             if(otherEvent.eventDate > event.eventDate) {

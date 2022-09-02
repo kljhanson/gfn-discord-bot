@@ -1,11 +1,13 @@
 const Discord = require('discord.js');
 const { parseDateString } = require('../lib/date-utils')
-const { Event, getActiveEvents, getEventById } = require('../models/event-model')
+const { Event, getActiveEvents, getEventById, JoinTypes } = require('../models/event-model')
 const { getEventGames, getEventTypesByGame, getEventTypeById } = require('../models/event-types-model');
 const { getEventEmbed } = require('../lib/events/event-ui')
 const logger = require('../lib/logger');
 const { createNewEvent, deleteEvent } = require('../lib/events/event-management');
-const { toJson } = require('../lib/utils');
+const { toJson, isNumeric } = require('../lib/utils');
+const { getEventIdFromChannel } = require('../lib/events/event-utils');
+const { refreshEventsChannel } = require('../lib/events/event-maintenance');
 
 async function autofillEventCreate(interaction) {
     logger.debug("we autocompleting")
@@ -47,7 +49,7 @@ async function autofillEventCreate(interaction) {
         const selectedType = interaction.options.getString("type")
         const eventType = await getEventTypeById(selectedType)
         let subtypeOptions = []
-        if(eventType) {
+        if(eventType && eventType.options && eventType.options.length > 0) {
             eventType.options.forEach(option => {
                 subtypeOptions.push({value: option.name, name: option.name})
             })
@@ -56,6 +58,13 @@ async function autofillEventCreate(interaction) {
                 logger.debug(`filtered options ${options}`)
                 await interaction.respond(options)
             }
+        } else {
+            await interaction.respond([
+                {
+                    value: 'none',
+                    name: 'None'
+                }
+            ])
         }
     }
 }
@@ -64,7 +73,10 @@ async function handleEventCreate(interaction) {
     logger.debug("create new event")
     const game = interaction.options.getString("game")
     const type = interaction.options.getString("type")
-    const subtype = interaction.options.getString("subtype")
+    let subtype = interaction.options.getString("subtype")
+    if(subtype == 'none') {
+        subtype = null
+    }
     const name = interaction.options.getString("name")
     const description = interaction.options.getString("description")
     const date = interaction.options.getString("date")
@@ -77,6 +89,7 @@ async function handleEventCreate(interaction) {
                 members.push(attendee.username)
         }
     }
+    const clanevent = interaction.options.getBoolean("clanevent")
 
     const startDate = parseDateString(date)
     if (!startDate) {
@@ -101,7 +114,8 @@ async function handleEventCreate(interaction) {
             updatedDate: Date.now(),
             guildId: interaction.guild.id,
             status: 'Active',
-            eventChannelId: 'tbd'
+            eventChannelId: 'tbd',
+            isClanEvent: clanevent ? clanevent : false
         }
         const event = new Event(eventDetails)
         logger.debug("event:")
@@ -138,7 +152,7 @@ async function handleEventCreate(interaction) {
     }
 }
 
-async function autofillEventDelete(interaction) {
+async function autofillEventId(interaction) {
     const focusedOption = interaction.options.getFocused(true);
 
     if(focusedOption.name === "eventid") {
@@ -195,6 +209,47 @@ async function handleEventDelete(interaction) {
         })
 }
 
+async function handleEventJoin(interaction, joinType) {
+    let eventId = interaction.options.getInteger('eventid')
+    logger.debug(`eventId: ${eventId}`)
+    if(!eventId) {
+        eventId = getEventIdFromChannel(interaction.channel.name)
+    }
+    if(!eventId || (!Number.isInteger(eventId) && !isNumeric(eventId))) {
+        logger.debug(`bad eventId: ${eventId}`)
+        logger.debug(`${typeof eventId}`)
+        logger.debug(`${Number.isInteger(eventId)}`)
+        logger.debug(`${isNumeric(eventId)}`)
+        return interaction.reply({content: `No eventId found! Must supply an eventId or use this command from an event channel`, ephemeral: true})
+    }
+    let joinUsers = []
+    for(var i = 1; i < 6; i++) {
+        const attendee = interaction.options.getUser(`attendee${i}`)
+        if(attendee) {
+            joinUsers.push(attendee)
+        }
+    }
+    if(joinUsers.length == 0) {
+        joinUsers.push(interaction.member)
+    }
+
+    const event = await getEventById(interaction.guild.id, `${eventId}`)
+    if(joinUsers.length > 0 
+        && interaction.member.username !== event.creator 
+        && !interaction.member.permissions.has(Discord.PermissionFlagsBits.Administrator)) {
+        return interaction.reply({content: `You are not the creator of the event and do not have permission to alter membership: _${event.getMiniTitle()}_`, ephemeral: true })
+    } else {
+        joinUsers.forEach(joinUser => handleJoinAction(interaction, joinType, joinUser, event))
+        interaction.reply(`Added ${joinUsers.map(m => `<@${m.id}>`).join(', ')} to event: **${event.getMiniTitle()}**`)
+    }
+}
+
+async function handleEventRefresh(interaction) {
+    interaction.deferReply()
+    await refreshEventsChannel(interaction.guild)
+    interaction.editReply('Clan event refresh complete')
+}
+
 module.exports = {
 	data: new Discord.SlashCommandBuilder()
         .setName('event')
@@ -213,10 +268,37 @@ module.exports = {
                 .addUserOption(option => option.setName('attendee3').setDescription('Attendee 3').setRequired(false))
                 .addUserOption(option => option.setName('attendee4').setDescription('Attendee 4').setRequired(false))
                 .addUserOption(option => option.setName('attendee5').setDescription('Attendee 5').setRequired(false))
+                .addBooleanOption(option => option.setName('clanevent').setDescription('Create Scheduled Event').setRequired(false))
+        )
+        .addSubcommand(joinCommand => 
+            joinCommand.setName("join").setDescription("Join an event")
+                .addIntegerOption(option => option.setName('eventid').setDescription('Event ID').setRequired(false).setAutocomplete(true))
+                .addStringOption(option => option.setName('type').setDescription('Join Type').setRequired(false).addChoices(
+                    { name: 'Join', value: 'join' },
+                    { name: 'Alternate', value: 'alt' },
+                    { name: 'Interested', value: 'int' },
+                ))
+                .addUserOption(option => option.setName('attendee1').setDescription('Attendee 1').setRequired(false))
+                .addUserOption(option => option.setName('attendee2').setDescription('Attendee 2').setRequired(false))
+                .addUserOption(option => option.setName('attendee3').setDescription('Attendee 3').setRequired(false))
+                .addUserOption(option => option.setName('attendee4').setDescription('Attendee 4').setRequired(false))
+                .addUserOption(option => option.setName('attendee5').setDescription('Attendee 5').setRequired(false))
+        )
+        .addSubcommand(leaveCommand => 
+            leaveCommand.setName("leave").setDescription("Leave an event")
+                .addIntegerOption(option => option.setName('eventid').setDescription('Event ID').setRequired(false).setAutocomplete(true))
+        )
+        .addSubcommand(kickCommand => 
+            kickCommand.setName("kick").setDescription("Kick someone from an event")
+                .addUserOption(option => option.setName('attendee').setDescription('Attendee').setRequired(true))
+                .addIntegerOption(option => option.setName('eventid').setDescription('Event ID').setRequired(false).setAutocomplete(true))
         )
         .addSubcommand(deleteCommand => 
             deleteCommand.setName("delete").setDescription("Delete a clan event")
                 .addIntegerOption(option => option.setName('eventid').setDescription('Event ID').setRequired(true).setAutocomplete(true))
+        )
+        .addSubcommand(refreshCommand => 
+            refreshCommand.setName("refresh").setDescription("Refresh events channels")
         ),
 	async execute(interaction) {
         const subcommand = interaction.options.getSubcommand()
@@ -224,8 +306,11 @@ module.exports = {
         if (interaction.isAutocomplete()) {
             if(subcommand === 'create') {
                 await autofillEventCreate(interaction)
-            } else if(subcommand === 'delete') {
-                await autofillEventDelete(interaction)
+            } else if(subcommand === 'join' 
+                || subcommand === 'leave' 
+                || subcommand === 'kick' 
+                || subcommand === 'delete') {
+                await autofillEventId(interaction)
             }
         }
 
@@ -233,8 +318,17 @@ module.exports = {
         if (interaction.isCommand()) {
             if(subcommand === 'create') {
                 await handleEventCreate(interaction)
+            } else if(subcommand === 'join') {
+                const joinType = interaction.options.getString('type') ? interaction.options.getString('type') : JoinTypes.JOIN
+                await handleEventJoin(interaction, joinType)
+            } else if(subcommand === 'leave') {
+                await handleEventJoin(interaction, JoinTypes.LEAVE)
+            } else if(subcommand === 'kick') {
+                await handleEventJoin(interaction, JoinTypes.LEAVE)
             } else if(subcommand === 'delete') {
                 await handleEventDelete(interaction)
+            } else if(subcommand === 'refresh') {
+                await handleEventRefresh(interaction)
             }
         }
 	},

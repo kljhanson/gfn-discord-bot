@@ -2,31 +2,12 @@ const JoinEmotes = require('../../../assets/event-emotes.json')
 const logger = require('../logger')
 const { addMinutesToDate, getCurrentUTCDate } = require('../date-utils')
 const { getEventById, JoinTypes, saveEvent, getEventsWithTimeframe } = require('../../models/event-model')
-const { getEventEmbed, updateEventEmbed } = require('./event-ui')
+const { getEventEmbed } = require('./event-ui')
 const { sendReply, getMessageParams } = require('../discord-utils')
 const { isNumeric } = require('../utils')
-const { updateChannelPermissions } = require('./event-channels')
+const { updateChannelPermissions, updateEventEmbed } = require('./event-channels')
+const { getEventIdFromChannel } = require('./event-utils')
 
-function handleJoinReaction(reaction, user, eventId) {
-    getEventById(reaction.message.guild.id, eventId).then(event => {
-        let joinType = JoinTypes.LEAVE
-        if (reaction.emoji.name == JoinEmotes.JOIN) {
-            joinType = JoinTypes.JOIN
-        }
-        else if (reaction.emoji.name == JoinEmotes.ALT) {
-            joinType = JoinTypes.ALTERNATE
-        }
-        else if (reaction.emoji.name == JoinEmotes.INTERESTED) {
-            joinType = JoinTypes.INTERESTED
-        } 
-        handleJoinAction(reaction.message, joinType, user, event)
-        reaction.message.reactions.cache.forEach(react => {
-            if(react.emoji.name == reaction.emoji.name) {   
-                react.users.remove(user.id)
-            }
-        })
-    })
-}
 
 function handleJoinAction(originalMessage, joinType, user, event) {
     if(!joinType) {
@@ -45,28 +26,40 @@ function handleJoinAction(originalMessage, joinType, user, event) {
         event.updateMemberStatus(user.username, joinType)
         sendRosterUpdateMessage(originalMessage, event, user, joinType, joinFullEvent)
         updateChannelPermissions(originalMessage, event, user, isJoined)
-        updateEventEmbed(originalMessage, event)
+        updateEventEmbed(originalMessage.guild, event)
         reviewEventConflicts(originalMessage, event, user, joinType)
         return true
     } 
     return false
 }
 
-function reviewEventConflicts(originalMessage, event, user, joinType) {
+function reviewEventConflicts(originalMessage, joinedEvent, user, joinType) {
     if(joinType === JoinTypes.JOIN || joinType === JoinTypes.ALTERNATE) {
-        const startTime = addMinutesToDate(getCurrentUTCDate(event.eventDate), -61)
-        const endTime = addMinutesToDate(getCurrentUTCDate(event.eventDate), 61)
-        getEventsWithTimeframe(originalMessage.guild.id, startTime, endTime, user.username).then(events => {
+        const startTime = addMinutesToDate(getCurrentUTCDate(joinedEvent.eventDate), -61)
+        const endTime = addMinutesToDate(getCurrentUTCDate(joinedEvent.eventDate), 61)
+        getEventsWithTimeframe(originalMessage.guild.id, startTime, endTime, user.username).then(async events => {
+            logger.debug(`found events in this timeframe: ${events.length}`)
             if(events && events.length > 0) {
                 let activityText = 'joined'
                 if(joinType === JoinTypes.ALTERNATE) {
                     activityText = 'joined as an alternate'
                 }
-                user.send(`One or more events may conflict with the event you just ${activityText}: **${event.getMiniTitle()}**
-                \nPlease review the following events to make sure they will not be an issue with your schedule and make any needed adjustments.`)
-                events.forEach(async event => {
-                    user.send({ embeds: [await getEventEmbed(event, originalMessage.guild)] })
-                })
+                let embeds = []
+                for(const event of events) {
+                    logger.debug(`does it match the joined event: ${event.id === joinedEvent.id}`)
+                    if(event.id !== joinedEvent.id) {
+                        embeds.push(await getEventEmbed(event, originalMessage.guild))
+                        logger.debug(`pushed an event to embeds, ${embeds.length}`)
+                    }
+                }
+                if(embeds.length > 0) {
+                    logger.debug(`have > 0 conflicting event`)
+                    user.send({ 
+                        content: `One or more events may conflict with the event you just ${activityText}: **${joinedEvent.getMiniTitle()}**
+                        \nPlease review the following events to make sure they will not be an issue with your schedule and make any needed adjustments.`, 
+                        embeds: embeds 
+                    })
+                }
             }
         })
     }
@@ -121,14 +114,8 @@ function sendRosterUpdateMessage(message, event, user, joinType, joinFullEvent =
 }
 
 function transferEvent(message) {
-    let eventId
-    if(message.channel.name.startsWith('id-')) {
-        const re = new RegExp(`^id-(\\d+)-.+`, "g");
-        let matches = re.exec(message.channel.name)
-        logger.debug(`matches: ${matches}`)
-        eventId = matches[1]
-        logger.debug(`matched eventId: ${eventId}`)
-    }
+    const channelName = message.channel.name
+    let eventId = getEventIdFromChannel(channelName)
     if (!eventId && message.mentions && message.mentions.users.array().length > 0) {
         const params = getMessageParams(message, `transfer`, 2)
         if(isNumeric(params)) {
@@ -167,4 +154,9 @@ function transferEvent(message) {
             }
         })
     }
+}
+
+module.exports = {
+    handleJoinAction: handleJoinAction,
+    transferEvent: transferEvent
 }

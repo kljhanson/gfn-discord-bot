@@ -7,22 +7,35 @@ const logger = require("../logger")
 const { getEventsChannel, createEventChannel, updateEventsChannel } = require("./event-channels")
 const { cleanupEvent, updateEventEmbed } = require("./event-maintenance")
 const { getEventEmbed, sendEventEmbed, editEventEmbed } = require("./event-ui")
+const { createScheduledEvent } = require('./scheduled-events')
 
 async function createNewEvent(interaction, eventDetails) {
     const config = await getConfiguration(interaction.guild.id)
     logger.info(`creating event, eventDetails: ${JSON.stringify(eventDetails)}`)
     const eventChannel = getEventsChannel(interaction.guild, config, eventDetails.game)
-    let newEvent = await createEvent(eventDetails.name, eventDetails.description, eventDetails.game, eventDetails.type, eventDetails.subtype,
-        eventDetails.eventDate, eventDetails.maxMembers, eventDetails.creator, interaction.guild.id, "idk", eventDetails.members, config)
+    let newEvent = await createEvent(
+        eventDetails.name, 
+        eventDetails.description, 
+        eventDetails.game, 
+        eventDetails.type, 
+        eventDetails.subtype,
+        eventDetails.eventDate, 
+        eventDetails.maxMembers, 
+        eventDetails.creator, 
+        interaction.guild.id, 
+        "idk", 
+        eventDetails.members, 
+        config)
     logger.info(`created new event, event=${JSON.stringify(newEvent)}`)
     const channel = await createEventChannel(interaction, eventChannel, newEvent, interaction.author)
     newEvent.eventChannelId = channel.id
     saveEvent(newEvent)
     const newEventEmbed = await getEventEmbed(newEvent, interaction.guild)
-    const embedMsg = await sendEventEmbed(eventChannel, newEventEmbed)
+    sendEventEmbed(eventChannel, newEventEmbed)
     await interaction.editReply({content: "Created new event:", embeds: [newEventEmbed], components: []})
     await interaction.followUp(`Created new event: **${newEvent.getMiniTitle()}**\n**View events**: <#${eventChannel.id}>\n**View event channel**: <#${channel.id}>`)
     await updateEventsChannel(interaction, eventDetails.game)
+    notifyEventAttendees(interaction, newEvent, channel)
     if(eventDetails.members && eventDetails.members.length > 0) {
         let mentions = [];
         const guildMembers = await interaction.guild.members.fetch()
@@ -37,6 +50,10 @@ async function createNewEvent(interaction, eventDetails) {
         if(mentions.length > 0) {
             await channel.send(`${mentions.join(", ")} you were added by ${interaction.user.username} to the event **${newEvent.getMiniTitle()}**`)
         }
+    }
+    logger.debug(`should create scheduled event: ${eventDetails.isClanEvent}`)
+    if(eventDetails.isClanEvent) {
+        createScheduledEvent(interaction.guild, newEvent)
     }
 }
 
@@ -85,6 +102,24 @@ async function editEventWithId(originalMessage, eventId, editType) {
                     // botMessage.reactions.removeAll()
                 });
             })
+    }
+}
+
+async function notifyEventAttendees(interaction, newEvent, eventChannel) {
+    if(newEvent.members && newEvent.members.length > 0) {
+        let mentions = [];
+        const guildMembers = await interaction.guild.members.fetch()
+        await newEvent.members.forEach(async member => {
+            if(member !== interaction.user.username) {
+                const memberUser = guildMembers.find(guildMember => guildMember.user.username === member)
+                if(memberUser && memberUser.username !== interaction.user.username) {
+                    mentions.push(`<@${memberUser.id}>`)
+                }
+            }
+        })
+        if(mentions.length > 0) {
+            await eventChannel.send(`${mentions.join(", ")} you were added by ${interaction.user.username} to the event **${newEvent.getMiniTitle()}**`)
+        }
     }
 }
 
@@ -141,7 +176,7 @@ function sendEditMessage(originalMessage, event, editType, editText) {
                     message.delete()
                     botMessage.delete()
                     saveEvent(event)
-                    updateEventEmbed(originalMessage, event)
+                    updateEventEmbed(originalMessage.guild, event)
                     sendReply(message, `Updated ${editType.toLowerCase()} for event: ${event.getMiniTitle()}`)
                 }
             }

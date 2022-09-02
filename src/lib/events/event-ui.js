@@ -2,14 +2,9 @@ const Discord = require('discord.js')
 const { getEventTypeById } = require('../../models/event-types-model')
 const { toDateString } = require('../date-utils')
 const JoinEmotes = require('../../../assets/event-emotes.json')
-const logger = require('../logger')
-const { getBotUser } = require('../global-vars')
-const { getConfiguration } = require('../../models/configuration-model')
 
 async function getEventEmbed(event, guild) {
-    logger.debug(event.type)
     const typeDetails = await getEventTypeById(event.type)
-    logger.debug(typeDetails)
     return getEventEmbedWithDetails(guild, event.type, event.subtype,
          typeDetails?typeDetails.color:null, 
          typeDetails?typeDetails.icon:null,

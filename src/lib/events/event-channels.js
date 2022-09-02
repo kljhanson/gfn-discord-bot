@@ -6,6 +6,7 @@ const { getBotUser } = require("../global-vars")
 const logger = require("../logger")
 const { toJson } = require('../utils')
 const { getEventEmbed, sendEventEmbed} = require('../../lib/events/event-ui')
+const { getEventIdFromChannel } = require('./event-utils')
 
 
 function getEventsChannel(guild, config, game) {
@@ -21,9 +22,6 @@ function getEventsChannel(guild, config, game) {
         })
     }
     logger.debug(gameChannels)
-    logger.debug("checking function types")
-    logger.debug(typeof getEventEmbed)
-    logger.debug(typeof sendEventEmbed)
     if(gameChannels.length == 1) {
         logger.info("found channel")
         let channelConfig = gameChannels[0]
@@ -108,12 +106,8 @@ async function getChannelPosition(event, parentChannel) {
     logger.debug(`channels`)
     logger.debug(channels)
     for(const channel of channels) {
-        if(position < 0 && channel.name.startsWith('id-')) {
-            const re = new RegExp(`^id-(\\d+)-.+`, "g");
-            let matches = re.exec(channel.name)
-            logger.debug(`matches: ${matches}`)
-            let eventId = matches[1]
-            logger.debug(`matched eventId: ${eventId}`)
+        const eventId = getEventIdFromChannel(channel.name)
+        if(position < 0 && eventId > -1) {
             let otherEvent = await getEventById(channel.guild.id, eventId)
             logger.debug(`compare ${event.eventDate} to ${otherEvent.eventDate}`)
             if(otherEvent.eventDate > event.eventDate) {
@@ -157,22 +151,13 @@ async function updateEventsChannel(interaction, game) {
     logger.info(`found ${events.length} events`)
     const messages = await eventsChannel.messages.fetch()
     const msgArray = [...messages.sort((msg1, msg2) => msg2.createdAt < msg1.createdAt).values()].reverse()
-    msgArray.forEach(msg => logger.debug(msg.id))
     logger.info(`found ${msgArray.length} messages`)
 
-    logger.debug("checking function types")
-    logger.debug(typeof getEventEmbed)
-    logger.debug(typeof sendEventEmbed)
     for(var i = 0; i < msgArray.length; i++) {
         const event = events[i]
         const message = msgArray[i]
         if(event) {
             logger.info(`edit message: ${message.id} with event: ${event.id}`)
-            logger.debug(`event: ${event.id}`)
-            logger.debug(`message: ${message.id}`)
-            logger.debug(typeof getEventEmbed)
-            logger.debug(typeof sendEventEmbed)
-            logger.debug(typeof getBotUser)
             const embed = await getEventEmbed(event, interaction.guild)
             message.edit({embeds: [embed]})
         }
@@ -248,6 +233,22 @@ async function updateEventChannel(event, eventsChannel, guild, position) {
     }
 }
 
+async function updateEventEmbed(guild, event) {
+    const config = await getConfiguration(guild.id)
+    const eventsChannel = getEventsChannel(guild, config, event.game)
+    const messages = await eventsChannel.messages.fetch()
+    messages.forEach(async message => {
+        if(message.author.id == getBotUser().id && message.embeds && message.embeds.length > 0) {
+            const eventField = message.embeds[0].fields.filter(field => field.name === "Event ID")[0]
+            if(eventField.value == event.id) {
+                logger.info('found matching event message: '+message)
+                const embed = await getEventEmbed(event, guild)
+                message.edit({ embeds: [embed] })
+            }
+        }
+    })
+}
+
 module.exports = {
     getEventsChannel: getEventsChannel,
     createEventChannel: createEventChannel,
@@ -255,5 +256,6 @@ module.exports = {
     updateEventChannel: updateEventChannel,
     reorderEventChannels: reorderEventChannels,
     reorderEventChannelForGame: reorderEventChannelForGame,
-    updateChannelPermissions: updateChannelPermissions
+    updateChannelPermissions: updateChannelPermissions,
+    updateEventEmbed: updateEventEmbed
 }

@@ -6,10 +6,9 @@ const {getConfig} = require('./src/lib/config')
 const dbUtils = require('./src/models/db-utils')
 const { initEventTypes, initEventGames } = require('./src/models/event-types-model')
 const {setBotUser, getVersion} = require('./src/lib/global-vars')
-const {matchMessage, sendMessage, sendReply, sendImage} = require('./src/lib/discord-utils')
 const { executeMemeMessages } = require('./src/commands/memes')
 const { executeIronBannerMessage } = require('./src/commands/iron-banner')
-const { executeEventMessage, executeEventReaction, executeEventCleanup, executeEventNotifications, executeDailyNotifications } = require('./src/commands/events')
+const { executeEventMessage } = require('./src/commands/events')
 const { executeSettingsMessage } = require('./src/commands/settings')
 const { executeGeneralMessage } = require('./src/commands/general')
 const { executeEventTypeMessage } = require('./src/commands/event-types')
@@ -30,7 +29,10 @@ const client = new Discord.Client({
 	],
 	partials: [Discord.Partials.Message, Discord.Partials.Channel, Discord.Partials.Reaction]
 })
-const logger = require('./src/lib/logger')
+const logger = require('./src/lib/logger');
+const { cleanupExpiredEvents } = require('./src/lib/events/event-maintenance');
+const { processEventNotifications, processDailyNotifications } = require('./src/lib/events/event-notifications');
+const { executeEventReaction } = require('./src/reactions/event');
 
 const commands = [];
 const commandsPath = path.join(__dirname, 'src/slash-commands');
@@ -110,12 +112,12 @@ client.on('ready', () => {
 	setBotUser(client.user)
 	initEventTypes()
 	initEventGames()
-	setInterval(executeEventCleanup, EVENT_CLEANUP_INTERVAL, client)
-	setInterval(executeEventNotifications, EVENT_NOTIFICATION_INTERVAL, client)
-	setInterval(executeDailyNotifications, EVENT_NOTIFICATION_INTERVAL, client)
-	executeEventCleanup(client)
-	executeEventNotifications(client)
-	executeDailyNotifications(client)
+	setInterval(cleanupExpiredEvents, EVENT_CLEANUP_INTERVAL, client)
+	setInterval(processEventNotifications, EVENT_NOTIFICATION_INTERVAL, client)
+	setInterval(processDailyNotifications, EVENT_NOTIFICATION_INTERVAL, client)
+	cleanupExpiredEvents(client)
+	processEventNotifications(client)
+	processDailyNotifications(client)
 })
 
 client.on('interactionCreate', async interaction => {
