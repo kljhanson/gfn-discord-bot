@@ -5,6 +5,9 @@ const logger = require('./logger')
 
 function parseDateString(dateString) {
     let ctOffset = new Date().getTimezoneOffset()*-1
+    if(ctOffset == 0) {
+        ctOffset = -300
+    }
     logger.info(`offset: ${ctOffset}`)
     const timezoneOffsets = {
         'CT': ctOffset,
