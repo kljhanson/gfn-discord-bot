@@ -1,6 +1,7 @@
 {
     "token": "",
     "tokenPath": "configs/dev.token",
+    "tokenConfig": "configs/devtoken.json",
     "dbUrl": "mongodb://192.168.50.2/gfn-dev",
     "logLevel": "debug"
 }

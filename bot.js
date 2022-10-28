@@ -59,6 +59,8 @@ logger.info(`bot initialized using ${process.env.NODE_ENV} environment`)
 // initalize database connections
 dbUtils.initMongo()
 
+const botToken = require(getConfig().tokenConfig).token
+
 // message index
 client.on('messageCreate', msg => {
 	logger.debug(msg)
@@ -155,5 +157,5 @@ client.on('interactionCreate', async interaction => {
 
 
 // start bot
-const botToken = fs.readFileSync(getConfig().tokenPath).toString()
+console.log('logging in...')
 client.login(botToken)
