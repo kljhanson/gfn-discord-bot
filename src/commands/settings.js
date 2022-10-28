@@ -109,12 +109,14 @@ function sendNotifConfMessage(msg) {
             optInVal = preference.optInDailyNotifications
             notifTime = preference.dailyNotificationTime
         }
-        const embed = new Discord.MessageEmbed()
+        const embed = new Discord.EmbedBuilder()
             .setTitle(`${msg.author.username}'s notification preferences`)
-            .addField(`Direct Message Opt Out`, `${dmOptOut}`, true)
-            .addField(`Daily Notifications`, `${optInVal}`, true)
-            .addField(`Notification Time`, `${notifTime}`, true)
-            .addField(`Options`, `🤖 = Toggle DMs on/off for event notifications\n✅ = Opt-In to daily notifications\n❌ = Opt-Out of daily notifications\n⌚ = Change daily notification time`)
+            .addFields([
+                { name: `Direct Message Opt Out`, value: `${dmOptOut}`, inline: true },
+                { name: `Daily Notifications`, value: `${optInVal}`, inline: true },
+                { name: `Notification Time`, value: `${notifTime}`, ineline: true },
+                { name: `Options`, value: `🤖 = Toggle DMs on/off for event notifications\n✅ = Opt-In to daily notifications\n❌ = Opt-Out of daily notifications\n⌚ = Change daily notification time` }
+            ])
         sendMessage(msg, embed).then(botMessage => {
             botMessage.react('🤖')
             botMessage.react('✅')

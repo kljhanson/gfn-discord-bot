@@ -1,6 +1,7 @@
 {
     "token": "",
     "tokenPath": "/app/bot-configs/prod.token",
-    "dbUrl": "mongodb://0.0.0.0/gfn",
+    "tokenConfig": "/app/bot-configs/prod.json",
+    "dbUrl": "mongodb://127.0.0.1/gfn",
     "logLevel": "info"
 }

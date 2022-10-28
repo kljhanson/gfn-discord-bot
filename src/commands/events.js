@@ -4,14 +4,16 @@
  * Updated: 2020-08-09
  */
 const logger = require('../lib/logger')
-const {cleanupExpiredEvents, deleteEvent, refreshEventsChannel} = require('./events/event-cleanup')
-const {handleJoinReaction, handleJoinAction, getEventDetails, transferEvent, editEventWithId} = require('./events/event-management')
+const {getEventDetails, transferEvent, editEventWithId} = require('./events/event-management')
 const {startCreateNewEvent} = require('./events/event-create')
-const {processEventNotifications, processDailyNotifications} = require('./events/event-notifications')
 const { JoinTypes } = require('../models/event-model')
-const { matchMessage, sendMessage, sendReply, sendImage, getMessageParams } = require('../lib/discord-utils')
+const { matchMessage, sendMessage, sendReply, getMessageParams } = require('../lib/discord-utils')
 const { getEventById } = require('../models/event-model')
 const { isNumeric }  = require('../lib/utils')
+const { getEventIdFromChannel } = require('../lib/events/event-utils')
+const { deleteEvent } = require('../lib/events/event-management')
+const { handleJoinAction } = require('../lib/events/event-members')
+const { refreshEventsChannel } = require('../lib/events/event-maintenance')
 
 function executeEventMessage(msg) {
     if (matchMessage(msg, 'create')) {
@@ -92,8 +94,14 @@ function executeEventMessage(msg) {
         transferEvent(msg)
     }
     if(matchMessage(msg, 'refresh')) {
-        refreshEventsChannel(msg)
+        handleRefresh(msg)
     }
+}
+
+async function handleRefresh(msg) {
+    sendReply(msg, 'Refreshing events channel...')
+    await refreshEventsChannel(msg.guild)
+    sendReply(msg, 'Refresh complete')
 }
 
 function processJoinMessage(message, joinCmd) {
@@ -109,11 +117,7 @@ function processJoinMessage(message, joinCmd) {
     }
     let eventId
     if(message.channel.name.startsWith('id-')) {
-        const re = new RegExp(`^id-(\\d+)-.+`, "g");
-        let matches = re.exec(message.channel.name)
-        logger.debug(`matches: ${matches}`)
-        eventId = matches[1]
-        logger.debug(`matched eventId: ${eventId}`)
+        eventId = getEventIdFromChannel(message.channe.name)
     }
     if (!eventId && message.mentions && message.mentions.users.array().length > 0) {
         const params = getMessageParams(message, joinCmd, -1)
@@ -184,35 +188,6 @@ function processJoinMessage(message, joinCmd) {
     }
 }
 
-function executeEventReaction(reaction, user) {
-    const embeds = reaction.message.embeds
-    if (embeds && embeds.length > 0 && embeds[0].fields.length > 0 && embeds[0].fields.map(field => field.name).includes("Event ID")) {
-        const eventIdField = embeds[0].fields.filter(field => field.name === "Event ID")[0]
-        const eventId = eventIdField.value
-        logger.debug(`Reacted on eventId: ${eventId}`)
-        handleJoinReaction(reaction, user, eventId)
-    }
-}
-
-function executeEventCleanup(client) {
-    logger.info(`Review events to clean up`)
-    cleanupExpiredEvents(client)
-}
-
-function executeEventNotifications(client) {
-    logger.info(`Process event notifications`)
-    processEventNotifications(client)
-}
-
-function executeDailyNotifications(client) {
-    logger.info(`Process daily notifications`)
-    processDailyNotifications(client)
-}
-
 module.exports = {
-    executeEventMessage: executeEventMessage,
-    executeEventReaction: executeEventReaction,
-    executeEventCleanup: executeEventCleanup,
-    executeEventNotifications: executeEventNotifications,
-    executeDailyNotifications: executeDailyNotifications
+    executeEventMessage: executeEventMessage
 }

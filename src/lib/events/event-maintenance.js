@@ -1,68 +1,67 @@
 const { saveEvent, getExpiredEvents, getEventById, getActiveEvents } = require('../../models/event-model')
-const { getEventsChannel, sendEventEmbed } = require('./event-utils')
+const { getEventsChannel } = require('./event-channels')
 const { getConfiguration } = require('../../models/configuration-model')
 const logger = require('../../lib/logger')
 const { getBotUser } = require('../../lib/global-vars')
 const { sendReply } = require('../../lib/discord-utils')
-const { getEventEmbed } = require('./event-ui')
+const { getEventEmbed, sendEventEmbed } = require('./event-ui')
 const { getEventGames } = require('../../models/event-types-model')
 
-async function refreshEventsChannel(originalMessage) {
-    sendReply(originalMessage, `Refreshing events channel...`)
-    getConfiguration(originalMessage.guild.id).then(async config => {
-        logger.debug(config)
-        logger.debug(config.eventChannels)
-        if(config.eventChannels && config.eventChannels.length > 0) {
-            config.eventChannels.forEach(async eventChannel => {
-                await purgeMessageFromEventChannel(originalMessage.guild, config, eventChannel.game)
-            })
-        }
-        await purgeMessageFromEventChannel(originalMessage.guild, config, null, null)
-        
-        let cleanupWindow = 12
-        if(config.eventCleanupWindow && config.eventCleanupWindow > 0) {
-            cleanupWindow = config.eventCleanupWindow
-        }
-        await getExpiredEvents(originalMessage.guild.id).then(events => {
-            logger.info(`Found ${events.length} expired events`)
-            events.forEach(event => {
-                logger.info(`Event to cleanup: ${event.id} ${event.name} ${event.eventDate}`)
-                cleanupEvent(event, originalMessage.guild, config)
-            })
+async function refreshEventsChannel(guild) {
+    const config = await getConfiguration(guild.id)
+    logger.debug(config)
+    logger.debug(config.eventChannels)
+    if(config.eventChannels && config.eventChannels.length > 0) {
+        config.eventChannels.forEach(async eventChannel => {
+            await purgeMessageFromEventChannel(guild, config, eventChannel.game)
         })
-
-        if(config.eventChannels && config.eventChannels.length > 0) {
-            let doneGames = []
-            await config.eventChannels.forEach(async eventChannel => {
-                doneGames.push(eventChannel.game)
-                logger.debug("done with games")
-                logger.debug(doneGames)
-                await refreshActiveEvents(originalMessage.guild, config, eventChannel.game)
-            })
-            let games = [null]
-            let eventGames = await getEventGames()
-            eventGames.forEach(eventGame => {
-                logger.debug("donegames")
-                logger.debug(doneGames)
-                if(!doneGames.includes(eventGame.name)) {
-                    games.push(eventGame.name)
-                }
-            })
-            await refreshActiveEvents(originalMessage.guild, config, null, games)
-        }
-        else {
-            await refreshActiveEvents(originalMessage.guild, config, null, null)
-        }
-        
-        sendReply(originalMessage, `Refresh complete.`)
+    }
+    await purgeMessageFromEventChannel(guild, config, null, null)
+    
+    let cleanupWindow = 12
+    if(config.eventCleanupWindow && config.eventCleanupWindow > 0) {
+        cleanupWindow = config.eventCleanupWindow
+    }
+    await getExpiredEvents(guild.id).then(events => {
+        logger.info(`Found ${events.length} expired events`)
+        events.forEach(event => {
+            logger.info(`Event to cleanup: ${event.id} ${event.name} ${event.eventDate}`)
+            cleanupEvent(event, originalMessage.guild, config)
+        })
     })
+
+    if(config.eventChannels && config.eventChannels.length > 0) {
+        let doneGames = []
+        await config.eventChannels.forEach(async eventChannel => {
+            doneGames.push(eventChannel.game)
+            logger.debug("done with games")
+            logger.debug(doneGames)
+            await refreshActiveEvents(guild, config, eventChannel.game)
+        })
+        let games = [null]
+        let eventGames = await getEventGames()
+        eventGames.forEach(eventGame => {
+            logger.debug("donegames")
+            logger.debug(doneGames)
+            if(!doneGames.includes(eventGame.name)) {
+                games.push(eventGame.name)
+            }
+        })
+        await refreshActiveEvents(guild, config, null, games)
+    }
+    else {
+        await refreshActiveEvents(guild, config, null, null)
+    }
 }
 
 async function purgeMessageFromEventChannel(guild, config, game) {
     const eventsChannel = getEventsChannel(guild, config, game)
     await eventsChannel.messages.fetch().then(async messages => {
+        logger.info(`evaluating ${messages.length} messages to purge from events channel`)
         messages.forEach(async message => {
+            logger.debug(`should delete message ${message.id} from ${message.author.id}`)
             if(message.author.id == getBotUser().id && message.embeds && message.embeds.length > 0) {
+                logger.debug(`deleting message ${message.id}`)
                 await message.delete()
             }
         })
@@ -98,41 +97,6 @@ function cleanupExpiredEvents(client) {
                 })
             })
         })
-    })
-}
-
-function reorderEventChannels(guild) {
-    getConfiguration(guild.id).then(async config => {
-        if(config.eventChannels && config.eventChannels.length > 0) {
-            let doneGames = []
-            config.eventChannels.forEach(async eventChannel => {
-                await reorderEventChannelForGame(guild, config, eventChannel.game)
-                doneGames.push(eventChannel.game)
-            })
-            let games = [null]
-            let eventGames = await getEventGames()
-            eventGames.forEach(eventGame => {
-                if(!doneGames.includes(eventGame.name)) {
-                    games.push(eventGame.name)
-                }
-            })
-            await reorderEventChannelForGame(guild, config, null, games)
-        }
-        else {
-            await reorderEventChannelForGame(guild, config, null, null)
-        }
-    })
-}
-
-async function reorderEventChannelForGame(guild, config, game, games) {
-    const eventsChannel = getEventsChannel(guild, config, game)
-    await getActiveEvents(guild.id, game, games).then(async events => {
-        logger.info(`Found ${events.length} active events`)
-        await eventsChannel.setPosition(0)
-        let eventChannelPos = 1
-        for(const event of events) {
-            await updateEventChannel(event, eventsChannel, guild, eventChannelPos++)
-        }
     })
 }
 
@@ -195,8 +159,6 @@ async function updateEventChannel(event, eventsChannel, guild, position) {
 module.exports = {
     cleanupExpiredEvents: cleanupExpiredEvents,
     cleanupEvent: cleanupEvent,
-    deleteEvent: deleteEvent,
     updateEventChannel: updateEventChannel,
-    reorderEventChannels: reorderEventChannels,
     refreshEventsChannel: refreshEventsChannel
 }

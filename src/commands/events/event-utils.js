@@ -28,11 +28,11 @@ function getEventsChannel(guild, config, game) {
 }
 
 function sendEventEmbed(channel, event) {
-    return channel.send(event).then(eventMessage => {
-        eventMessage.react(JoinEmotes.JOIN)
-        eventMessage.react(JoinEmotes.ALT)
-        eventMessage.react(JoinEmotes.INTERESTED)
-        eventMessage.react(JoinEmotes.LEAVE)
+    return channel.send({embeds: [event]}).then(async eventMessage => {
+        await eventMessage.react(JoinEmotes.JOIN)
+        await eventMessage.react(JoinEmotes.ALT)
+        await eventMessage.react(JoinEmotes.INTERESTED)
+        await eventMessage.react(JoinEmotes.LEAVE)
     })
 }
 

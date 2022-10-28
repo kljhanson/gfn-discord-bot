@@ -4,12 +4,13 @@ const { createEvent, saveEvent, getActiveEvents, getEventById } = require('../..
 const { getEventGames, getEventTypes, getEventTypesByGame, getEventTypeById, getEventTypeByEmote } = require('../../models/event-types-model')
 const { sendMessage, sendReply } = require('../../lib/discord-utils')
 const { isNumeric } = require('../../lib/utils')
-const { getEventEmbed } = require('./event-ui')
-const { updateEventChannel, reorderEventChannels } = require('./event-cleanup')
+const { getEventEmbed } = require('../../lib/events/event-ui')
 const { getEventsChannel, sendEventEmbed, handleCancel } = require('./event-utils')
 const { getConfiguration, getGameEventChannel } = require('../../models/configuration-model')
 const { getBotUser } = require('../../lib/global-vars')
 const logger = require('../../lib/logger')
+const { getEventIdFromChannel } = require('../../lib/events/event-utils')
+const { reorderEventChannels } = require('../../lib/events/event-channels')
 
 function startCreateNewEvent(msg, type) {
     sendCreateEventGame(msg, type)
@@ -23,10 +24,15 @@ async function sendCreateEventGame(originalMessage, type) {
     }
     const embed = eventCreateEmbed(0, "Create new event",
         "Welcome to the event creation program. Please select a game using your keyboard or by selecting from the emote options below ")
-    embed.addField('Games', await getEventGameTypeDescriptions())
+    embed.addFields({name: 'Games', value: await getEventGameTypeDescriptions()})
     
     let gameTypes = await getEventGames()
-    const botMessage = await originalMessage.channel.send(embed)
+    const botMessage = await originalMessage.channel.send({ embeds: [embed]})
+    logger.info(botMessage.text)
+    logger.info(botMessage.author.id)
+    logger.info(botMessage.embed)
+    logger.info(botMessage.reactions)
+    logger.info('test')
     addGameReactions(botMessage)
     const collector = collectMessageReplies(originalMessage, botMessage, (message, collector) => {
         collector.stop()
@@ -42,13 +48,16 @@ async function sendCreateEventGame(originalMessage, type) {
 
     let eventEmotes = await getEventGameEmotes()
     const filter = (reaction, user) => {
+        logger.debug(`reaction: ${reaction.emoji.name}, user: ${user.id}, orig: ${originalMessage.author.id}`)
         return eventEmotes.includes(reaction.emoji.name) && user.id === originalMessage.author.id;
     };
 
-    botMessage.awaitReactions(filter, { max: 1, time: 120000, errors: ['time'] })
+    botMessage.awaitReactions({filter, max: 1, time: 120000, errors: ['time'] })
     .then(collected => {
         const reaction = collected.first();
         const emote = reaction.emoji.name
+        logger.debug(emote)
+        logger.debug("reaction?")
 
         if (eventEmotes.includes(emote)) {
             collector.stop()
@@ -74,16 +83,16 @@ async function sendCreateEventType(originalMessage, prevBotMessage, game, type) 
     }
     const embed = eventCreateEmbed(1, `Create new ${selectedGame} event`,
         "Please select an event type using your keyboard or by selecting from the emote options below ")
-    embed.addField('Event Types', await getEventEmoteDescriptions(selectedGame))
+    embed.addFields({name: 'Event Types', value: await getEventEmoteDescriptions(selectedGame)})
     
     let eventTypes = await getEventTypesByGame(selectedGame)
     let sendFunction
     if(!prevBotMessage) {
-        sendFunction = () => originalMessage.channel.send(embed)
+        sendFunction = () => originalMessage.channel.send({ embeds: [embed]})
     } 
     else {
         prevBotMessage.reactions.removeAll()
-        sendFunction = () => prevBotMessage.edit(embed)
+        sendFunction = () => prevBotMessage.edit({ embeds: [embed] })
     }
     const botMessage = await sendFunction()
     addTypeReactions(botMessage, selectedGame)
@@ -138,7 +147,7 @@ async function sendCreateEventSubtype(originalMessage, prevBotMessage, type) {
     } else {
         if(eventType.options && eventType.options.length > 0) {
             embed = eventCreateEmbed(1.5, `Create new ${eventType.name} event`, `Select an option for your ${eventType.name} event:`)
-            embed.addField('Options', getOptionDescriptions(eventType))
+            embed.addFields({name: 'Options', value: getOptionDescriptions(eventType)})
         }
         else {
             sendCreateEventName(originalMessage, prevBotMessage, type, null)
@@ -147,11 +156,11 @@ async function sendCreateEventSubtype(originalMessage, prevBotMessage, type) {
     }
     let sendFunction
     if(!prevBotMessage) {
-        sendFunction = () => originalMessage.channel.send(embed)
+        sendFunction = () => originalMessage.channel.send({ embeds: [embed]})
     } 
     else {
         prevBotMessage.reactions.removeAll()
-        sendFunction = () => prevBotMessage.edit(embed)
+        sendFunction = () => prevBotMessage.edit({ embeds: [embed] })
     }
     const botMessage = await sendFunction()
     if(eventType && eventType.options && eventType.options.length > 0) {
@@ -194,11 +203,11 @@ async function sendCreateEventName(originalMessage, prevBotMessage, type, subtyp
     }
     let sendFunction
     if(!prevBotMessage) {
-        sendFunction = () => originalMessage.channel.send(embed)
+        sendFunction = () => originalMessage.channel.send({ embeds: [embed]})
     } 
     else {
         prevBotMessage.reactions.removeAll()
-        sendFunction = () => prevBotMessage.edit(embed)
+        sendFunction = () => prevBotMessage.edit({ embeds: [embed] })
     }
     const botMessage = await sendFunction()
     collectMessageReplies(originalMessage, botMessage, (message, collector) => {
@@ -228,11 +237,11 @@ async function sendCreateEventDescription(originalMessage, prevBotMessage, type,
         "Give your event a kick-ass description. Make it cool enough that people will want to join, but not too edgy otherwise you might get shunned.")
     let sendFunction
     if(!prevBotMessage) {
-        sendFunction = () => originalMessage.channel.send(embed)
+        sendFunction = () => originalMessage.channel.send({ embeds: [embed]})
     } 
     else {
         prevBotMessage.reactions.removeAll()
-        sendFunction = () => prevBotMessage.edit(embed)
+        sendFunction = () => prevBotMessage.edit({ embeds: [embed] })
     }
     const botMessage = await sendFunction()
     collectMessageReplies(originalMessage, botMessage, (message, collector) => {
@@ -270,7 +279,7 @@ async function sendCreateEventMaxMembers(originalMessage, prevBotMessage, type, 
     }
     const embed = eventCreateEmbed(4, `Creating new event "${eventName}"`, "Now let me know how many people you need in this shindig:")
     
-    const botMessage = await prevBotMessage.edit(embed)
+    const botMessage = await prevBotMessage.edit({ embeds: [embed] })
     collectMessageReplies(originalMessage, botMessage, (message, collector) => {
         if(!handleCancel(message, botMessage)) {
             let maxMembers = 0
@@ -320,9 +329,9 @@ async function sendCreateEventDate(originalMessage, prevBotMessage, type, subtyp
     logger.debug(eventType.id)
     logger.debug(eventType)
     const embed = eventCreateEmbed(5, `Creating new event "${eventName}"`, `When is this party starting?`)
-    embed.addField("Date format instructions:", `You can use explicit formatting (e.g. **01-01-2020 8:00pm CDT**) or casual (**Friday 8pm CT**).
-    Use US-style formatting for dates (MM/dd/yyyy or MM-dd-yyyy). Timezones support CT, ET, PT or MT (and their DST equivalents)`)
-    const botMessage = await prevBotMessage.edit(embed)
+    embed.addFields({name: "Date format instructions:", value: `You can use explicit formatting (e.g. **01-01-2020 8:00pm CDT**) or casual (**Friday 8pm CT**).
+    Use US-style formatting for dates (MM/dd/yyyy or MM-dd-yyyy). Timezones support CT, ET, PT or MT (and their DST equivalents)`})
+    const botMessage = await prevBotMessage.edit({ embeds: [embed] })
     collectMessageReplies(originalMessage, botMessage, (message, collector) => {
         if (!handleCancel(message, botMessage)) {
             const startDate = parseDateString(message.content)
@@ -415,11 +424,11 @@ function eventCreateEmbed(stepNum, title, description, color) {
     if(!color) {
         color = 0x03a9f4
     }
-    return new Discord.MessageEmbed()
+    return new Discord.EmbedBuilder()
         .setTitle(title)
         .setDescription(description)
         .setColor(color)
-        .setFooter(`Step ${stepNum} of 5 • ${stepOneStatus}Type / ${stepTwoStatus}Name / ${stepThreeStatus}Description / ${stepFourStatus}Members / ${stepFiveStatus}Time`)
+        .setFooter({ text: `Step ${stepNum} of 5 • ${stepOneStatus}Type / ${stepTwoStatus}Name / ${stepThreeStatus}Description / ${stepFourStatus}Members / ${stepFiveStatus}Time` })
 }
 
 async function getEventGameTypeDescriptions() {
@@ -590,12 +599,8 @@ async function createEventChannel(originalMessage, eventChannel, event, user) {
     logger.debug(`channels`)
     logger.debug(channels)
     for(const channel of channels) {
-        if(position < 0 && channel.name.startsWith('id-')) {
-            const re = new RegExp(`^id-(\\d+)-.+`, "g");
-            let matches = re.exec(channel.name)
-            logger.debug(`matches: ${matches}`)
-            let eventId = matches[1]
-            logger.debug(`matched eventId: ${eventId}`)
+        const eventId = getEventIdFromChannel(channel.name)
+        if(position < 0 && eventId > -1) {
             let otherEvent = await getEventById(channel.guild.id, eventId)
             logger.debug(`compare ${event.eventDate} to ${otherEvent.eventDate}`)
             if(otherEvent.eventDate > event.eventDate) {

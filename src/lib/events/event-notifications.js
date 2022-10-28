@@ -1,47 +1,40 @@
 const Discord = require('discord.js')
-const { parseDateString, addMinutesToDate, getCurrentUTCDate, getCurrentUTCDateToTheMinute, toTimeString } = require('../../lib/date-utils')
-const { getEventById, JoinTypes, getEventsStartingAt, getDailyEvents} = require('../../models/event-model')
-const { getEventsChannel, sendEventEmbed, handleCancel } = require('./event-utils')
+const { addMinutesToDate, getCurrentUTCDate, getCurrentUTCDateToTheMinute, toTimeString } = require('../date-utils')
+const { getEventsStartingAt, getDailyEvents} = require('../../models/event-model')
 const { getEventEmbed } = require('./event-ui')
-const { getConfiguration } = require('../../models/configuration-model')
 const { getNotificationPreferences, getUserPreference } = require('../../models/user-preferences-model')
-const { getBotUser } = require('../../lib/global-vars')
-const JoinEmotes = require('../../../assets/event-emotes.json')
-const logger = require('../../lib/logger')
-const { sendReply } = require('../../lib/discord-utils')
+const logger = require('../logger')
 
 async function processDailyNotifications(client) {
     const currentDateTime = getCurrentUTCDateToTheMinute()
     const timeString = toTimeString(currentDateTime).replace("CST", "").replace("CDT", "")
     logger.info(`searching for daily notifications equal to time: ${timeString}`)
-    getNotificationPreferences(timeString).then(preferences => {
-        logger.info(preferences)
-        preferences.forEach(preference => {
-            let startTime = getCurrentUTCDate().hour(3).minute(0).second(0)
-            let endTime = getCurrentUTCDate().hour(3).minute(0).second(0).day(startTime.day()+1)
-            logger.info(`Searching for daily events for user ${preference.userName} between ${startTime} and ${endTime}`)
-            getDailyEvents(preference.guildId, preference.userName, startTime, endTime).then(async events => {
-                if(events.length > 0) {
-                    logger.info(events)
-                    let greeting = `Morning`
-                    if(preference.dailyNotificationTime.indexOf('PM') > 0) {
-                        greeting = 'Afternoon'
-                    }
-                    let description = `Good ${greeting}, ${preference.userName}. You are a member of the following ${events.length} events for today: \n`
-                    
-                    const guild = client.guilds.cache.filter(guild => guild.id === preference.guildId).first()
-                    await guild.members.fetch()
-                    const member = guild.members.cache.filter(member => member.id === preference.userId).first()
-                    member.user.send(description)
-                    events.forEach(async event => {
-                        const embed = await getEventEmbed(event, guild)
-                        member.user.send(embed)
-                    })
-                } else {
-                    logger.info(`No events found for today for user: ${preference.userName}`)
-                }
+    const preferences = await getNotificationPreferences(timeString)
+    logger.info(preferences)
+    preferences.forEach(async preference => {
+        let startTime = getCurrentUTCDate().hour(3).minute(0).second(0)
+        let endTime = getCurrentUTCDate().hour(3).minute(0).second(0).day(startTime.day()+1)
+        logger.info(`Searching for daily events for user ${preference.userName} between ${startTime} and ${endTime}`)
+        const events = await getDailyEvents(preference.guildId, preference.userName, startTime, endTime)
+        if(events.length > 0) {
+            logger.info(events)
+            let greeting = `Morning`
+            if(preference.dailyNotificationTime.indexOf('PM') > 0) {
+                greeting = 'Afternoon'
+            }
+            let description = `Good ${greeting}, ${preference.userName}. You are a member of the following ${events.length} events for today: \n`
+            
+            const guild = client.guilds.cache.filter(guild => guild.id === preference.guildId).first()
+            await guild.members.fetch()
+            const member = guild.members.cache.filter(member => member.id === preference.userId).first()
+            let embeds = []
+            events.forEach(async event => {
+                embeds.push(await getEventEmbed(event, guild))
             })
-        })
+            member.user.send({ content: description, embeds: embeds})
+        } else {
+            logger.info(`No events found for today for user: ${preference.userName}`)
+        }
     })
 }
 
@@ -76,8 +69,10 @@ async function processEventNotifications(client) {
                     if(userPref && userPref.optOutDirectMessages) {
                         logger.info(`skipping DM to ${user.username} as they have opted out of receiving direct messages`)
                     } else {
-                        user.send(`The following which you have joined is starting in **15 minutes**. Please be ready to join up.`)
-                        user.send(await getEventEmbed(event, guild))
+                        user.send({ 
+                            content: `The following which you have joined is starting in **15 minutes**. Please be ready to join up.`, 
+                            embeds: [await getEventEmbed(event, guild)] 
+                        })
                     }
                 })
             })
