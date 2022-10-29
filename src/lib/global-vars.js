@@ -1,5 +1,5 @@
 var botUser;
-const VERSION = `3.0.0`
+const VERSION = require("../../version.json").version
 
 function setBotUser(user) {
     botUser = user;
