@@ -231,7 +231,7 @@ async function deleteEvent(interaction, eventId) {
     logger.info(`delete event ${eventId}`)
     const event = await getEventById(interaction.guild.id, eventId)
     const config = await getConfiguration(interaction.guild.id)
-    if(interaction.member.username === event.creator 
+    if(interaction.user.username === event.creator 
         || interaction.member.permissions.has(Discord.PermissionFlagsBits.Administrator)) {
             cleanupEvent(event, interaction.guild, config, 'Deleted')
             // const newEventEmbed = await getEventEmbed(newEvent, interaction.guild)
