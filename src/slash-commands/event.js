@@ -165,9 +165,14 @@ Hint: you can use the up-arrow on your keyboard to "recover" the previous comman
                 };
                 
                 message.awaitMessageComponent({ filter, componentType: Discord.ComponentType.Button, time: 60000 })
-                    .then(interaction => {
-                        logger.debug("clicked button good")
-                        createNewEvent(interaction, eventDetails)
+                    .then(buttonDeets => {
+                        if(buttonDeets.customId === 'event_cancel') {
+                            interaction.editReply({content: "Cancelling event creation", embeds: [], components: []})
+                            interaction.followUp({content: "Cancelling event creation"})
+                        } else if(buttonDeets.customId === 'event_create') {
+                            logger.debug("create button pressed")
+                            createNewEvent(interaction, eventDetails)
+                        }
                     }).catch(err => console.log(`No interactions were collected.`));
             })
     }
@@ -177,7 +182,7 @@ async function autofillEventId(interaction) {
     const focusedOption = interaction.options.getFocused(true);
 
     if(focusedOption.name === "eventid") {
-        const events = await getActiveEvents(interaction.guild.id, includePrivate = true)
+        const events = await getActiveEvents(interaction.guild.id, null, null, true, interaction.member.user.username)
         let options = []
         logger.debug(`found ${events.length} active events`)
         if(events && events.length > 0) {
@@ -223,9 +228,14 @@ async function handleEventDelete(interaction) {
             };
             
             message.awaitMessageComponent({ filter, componentType: Discord.ComponentType.Button, time: 60000 })
-                .then(int => {
-                    logger.debug("delete button pressed")
-                    deleteEvent(interaction, eventId)
+                .then(buttonDeets => {
+                    if(buttonDeets.customId === 'event_cancel') {
+                        interaction.editReply({content: "Cancelling event deletion", embeds: [], components: []})
+                        interaction.followUp({content: "Cancelling event deletion"})
+                    } else if(buttonDeets.customId === 'event_delete') {
+                        logger.debug("delete button pressed")
+                        deleteEvent(interaction, eventId)
+                    }
                 }).catch(err => logger.error(err));
         })
 }

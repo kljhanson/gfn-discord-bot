@@ -1,4 +1,14 @@
 {
+    "3.2.1": [
+        {
+            "change": "Fixed issue with cancel buttons on events",
+            "description": "Now it won't create your event when you meant to cancel"
+        },
+        {
+            "change": "Fixed issue with filtering on events",
+            "description": "It was broken, now it is not -- rejoice"
+        }
+    ],
     "3.2.0": [
         {
             "change": "Added new option on event creation to make the event private",

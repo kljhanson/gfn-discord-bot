@@ -1,5 +1,6 @@
 const Discord = require('discord.js');
 const { replyImage, sendReply } = require('../lib/discord-utils');
+const { messWithRogue, messWithRogueManual } = require('../lib/meme-utils');
 
 module.exports = {
 	data: new Discord.SlashCommandBuilder()
@@ -11,7 +12,8 @@ module.exports = {
         .addSubcommand(subcommand => subcommand.setName("knob").setDescription("knob"))
         .addSubcommand(subcommand => subcommand.setName("knobie").setDescription("knobie"))
         .addSubcommand(subcommand => subcommand.setName("rogue").setDescription("rogue"))
-        .addSubcommand(subcommand => subcommand.setName("rumi").setDescription("rumi")),
+        .addSubcommand(subcommand => subcommand.setName("rumi").setDescription("rumi"))
+        .addSubcommand(subcommand => subcommand.setName("otherrogue").setDescription("otherrogue")),
 	async execute(interaction) {
         const subcommand = interaction.options.getSubcommand()
         if(subcommand === 'spook') { 
@@ -22,6 +24,9 @@ module.exports = {
         }
         if(subcommand === 'rogue') {
             sendReply(interaction, '<@251761701194563584> Hello muppet, beep boop. I calculate we are enemies.')
+        }
+        if(subcommand === 'otherrogue') {
+            messWithRogueManual(interaction)
         }
         if(subcommand === 'snek' || subcommand === 'hybrid') {
             replyImage(interaction, 'https://media.tenor.com/images/f88700a975e4139be55cb933e05f64d7/tenor.gif', '<@231577281758232576>')
