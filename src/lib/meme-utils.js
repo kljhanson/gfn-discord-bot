@@ -15,7 +15,7 @@ async function messWithRogue(client) {
             logger.debug(newState.member.user.username)
             logger.debug(newState.mute)
             logger.debug(newState.channelId)
-            let isTimeToClownRogue = newState.member.user.username === "mfbaggins" && !newState.mute && newState.channelId
+            let isTimeToClownRogue = newState.member.user.username === "RogueOutsider" && !newState.mute && newState.channelId
             logger.debug(isTimeToClownRogue)
             if (isTimeToClownRogue) {
             logger.info(`Rogue has joined a VC, this is not a drill!!`)
