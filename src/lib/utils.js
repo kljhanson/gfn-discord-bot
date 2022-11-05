@@ -27,10 +27,17 @@ function toJson(data) {
         .replace(/"(-?\d+)n"/g, (_, a) => a);
 }
 
+function sleep(ms) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
+
 module.exports = {
     getRandomInt: getRandomInt,
     shuffleArray: shuffleArray,
     removeFromArray: removeFromArray,
     isNumeric: isNumeric,
-    toJson: toJson
+    toJson: toJson,
+    sleep: sleep
 }

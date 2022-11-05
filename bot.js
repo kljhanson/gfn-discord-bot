@@ -36,6 +36,7 @@ const { processEventNotifications, processDailyNotifications } = require('./src/
 const { executeEventReaction } = require('./src/reactions/event');
 const { cleanupIronBannerChannels } = require('./src/lib/iron-banner');
 const { publishReleaseNotes } = require('./src/lib/release-notes');
+const { messWithRogue } = require('./src/lib/meme-utils');
 
 const commands = [];
 const commandsPath = path.join(__dirname, 'src/slash-commands');
@@ -134,6 +135,7 @@ client.on('ready', () => {
 	processDailyNotifications(client)
 	cleanupIronBannerChannels(client)
 	publishReleaseNotes(client)
+	messWithRogue(client)
 })
 
 client.on('interactionCreate', async interaction => {

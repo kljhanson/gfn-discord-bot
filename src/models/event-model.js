@@ -256,7 +256,7 @@ async function getExpiredEvents(guildId, cleanupWindow) {
     return await Event.find({guildId: guildId, eventDate: { $lte: date }, status: "Active"}).exec()
 }
 
-async function getActiveEvents(guildId, game, games, includePrivate = false) {
+async function getActiveEvents(guildId, game, games, includePrivate = false, username) {
     let query = {guildId: guildId, status: "Active"}
     if(game) {
         query.game = game
