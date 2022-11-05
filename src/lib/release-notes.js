@@ -4,8 +4,9 @@ const { getVersion } = require("./global-vars")
 const logger = require("./logger")
 const { toJson } = require("./utils")
 
-function publishReleaseNotes(client) {
+async function publishReleaseNotes(client) {
     const botVersion = getVersion()
+    await client.guilds.fetch()
     client.guilds.cache.forEach(async guild => {
         const config = await getConfiguration(guild.id)
         const currentVersion = config.botVersion
