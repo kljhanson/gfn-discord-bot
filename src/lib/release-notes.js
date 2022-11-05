@@ -22,7 +22,7 @@ async function publishReleaseNotes(client) {
             if(rnMessage) {
                 await guild.channels.fetch()
                 const rnChannels = await guild.channels.cache.filter(channel => channel.name.includes("release-notes"))
-                const botChannels = await guild.channels.cache.filter(channel => channel.name.includes("bot-channel"))
+                const botChannels = await guild.channels.cache.filter(channel => channel.name.includes("the-bot-channel") || channel.name === "bot-channel")
                 let channel
                 if(rnChannels.size == 1) {
                     channel = rnChannels.first()
