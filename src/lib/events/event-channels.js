@@ -109,6 +109,10 @@ async function getChannelPosition(event, parentChannel) {
         const eventId = getEventIdFromChannel(channel.name)
         if(position < 0 && eventId > -1) {
             let otherEvent = await getEventById(channel.guild.id, eventId)
+            if(!otherEvent) {
+                logger.debug(`found bad event ${eventId}`)
+                continue
+            }
             logger.debug(`compare ${event.eventDate} to ${otherEvent.eventDate}`)
             if(otherEvent.eventDate > event.eventDate) {
                 logger.info(`found later event: ${otherEvent.getMiniTitle()}`)

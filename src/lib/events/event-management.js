@@ -24,17 +24,21 @@ async function createNewEvent(interaction, eventDetails) {
         eventDetails.creator, 
         interaction.guild.id, 
         "idk", 
-        eventDetails.members, 
-        config)
+        eventDetails.members,
+        eventDetails.private)
     logger.info(`created new event, event=${JSON.stringify(newEvent)}`)
     const channel = await createEventChannel(interaction, eventChannel, newEvent, interaction.author)
     newEvent.eventChannelId = channel.id
     saveEvent(newEvent)
     const newEventEmbed = await getEventEmbed(newEvent, interaction.guild)
-    sendEventEmbed(eventChannel, newEventEmbed)
-    await interaction.editReply({content: "Created new event:", embeds: [newEventEmbed], components: []})
-    await interaction.followUp(`Created new event: **${newEvent.getMiniTitle()}**\n**View events**: <#${eventChannel.id}>\n**View event channel**: <#${channel.id}>`)
-    await updateEventsChannel(interaction, eventDetails.game)
+    if(eventDetails.private) {
+        await interaction.editReply({content: "Created new private event:", embeds: [newEventEmbed], components: []})
+    } else {
+        sendEventEmbed(eventChannel, newEventEmbed)
+        await interaction.editReply({content: "Created new event:", embeds: [newEventEmbed], components: []})
+        await interaction.followUp(`Created new event: **${newEvent.getMiniTitle()}**\n**View events**: <#${eventChannel.id}>\n**View event channel**: <#${channel.id}>`)
+        await updateEventsChannel(interaction, eventDetails.game)
+    }
     notifyEventAttendees(interaction, newEvent, channel)
     if(eventDetails.members && eventDetails.members.length > 0) {
         let mentions = [];

@@ -347,7 +347,7 @@ async function sendCreateEventDate(originalMessage, prevBotMessage, type, subtyp
                     logger.debug("eventGame: "+eventGame)
                     const eventChannel = getEventsChannel(originalMessage.guild, config, eventGame)
                     createEvent(name, description, eventType.game, type, subtype, startDate, maxMembers,
-                        originalMessage.author.username, originalMessage.guild.id, "idk", members, config).then(newEvent => {
+                        originalMessage.author.username, originalMessage.guild.id, "idk", members).then(newEvent => {
                             logger.info("created new event...")
                             logger.info(newEvent)
                             createEventChannel(originalMessage, eventChannel, newEvent, originalMessage.author).then(async channel => {

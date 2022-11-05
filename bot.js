@@ -35,6 +35,7 @@ const { cleanupExpiredEvents } = require('./src/lib/events/event-maintenance');
 const { processEventNotifications, processDailyNotifications } = require('./src/lib/events/event-notifications');
 const { executeEventReaction } = require('./src/reactions/event');
 const { cleanupIronBannerChannels } = require('./src/lib/iron-banner');
+const { publishReleaseNotes } = require('./src/lib/release-notes');
 
 const commands = [];
 const commandsPath = path.join(__dirname, 'src/slash-commands');
@@ -132,6 +133,7 @@ client.on('ready', () => {
 	processEventNotifications(client)
 	processDailyNotifications(client)
 	cleanupIronBannerChannels(client)
+	publishReleaseNotes(client)
 })
 
 client.on('interactionCreate', async interaction => {

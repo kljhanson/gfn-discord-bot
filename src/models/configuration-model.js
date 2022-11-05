@@ -13,7 +13,8 @@ const configurationSchema = new mongoose.Schema({
     nextEventId: Number,
     eventCleanupWindow: Number,
     blessedRoles: [String],
-    eventChannels: [eventChannelConfigSchema]
+    eventChannels: [eventChannelConfigSchema],
+    botVersion: String
 });
 
 const GFNConfiguration = mongoose.model('gfnConfiguration', configurationSchema);
@@ -70,6 +71,14 @@ async function smiteRole(guildId, role) {
         { $pull: { blessedRoles: role}}).exec()
 }
 
+async function getBotVersion(guildId) {
+    return await GFNConfiguration.findOne({guildId: guildId}).exec()
+}
+
+async function updateBotVersion(guildId, botVersion) {
+    return await GFNConfiguration.findOneAndUpdate({guildId: guildId},
+        { $set: { botVersion: botVersion }}, {upsert: true, new: true}).exec()
+}
 
 
 module.exports = {
@@ -81,5 +90,7 @@ module.exports = {
     updateCleanupWindow: updateCleanupWindow,
     updateGameEventChannel: updateGameEventChannel,
     blessRole: blessRole,
-    smiteRole: smiteRole
+    smiteRole: smiteRole,
+    getBotVersion: getBotVersion,
+    updateBotVersion: updateBotVersion
 }
