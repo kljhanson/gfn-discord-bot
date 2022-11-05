@@ -5,12 +5,13 @@ const logger = require("./logger")
 const { toJson } = require("./utils")
 
 async function publishReleaseNotes(client) {
+    logger.info(`checking release notes`)
     const botVersion = getVersion()
     await client.guilds.fetch()
     client.guilds.cache.forEach(async guild => {
+        logger.info(`evaluating guild ${guild.id}`)
         const config = await getConfiguration(guild.id)
         const currentVersion = config.botVersion
-        logger.info(`checking release notes`)
         if(currentVersion != botVersion) {
             logger.info(`new version detected for guild ${guild.id}. Current = ${currentVersion}, new = ${botVersion}`)
             const rnMessage = await getReleaseNoteMessage(botVersion)
