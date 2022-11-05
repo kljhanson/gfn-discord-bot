@@ -1,0 +1,20 @@
+{
+    "3.2.0": [
+        {
+            "change": "Added new option on event creation to make the event private",
+            "description": "This enables users to make an event not show in the events channel, but gives them a private channel for coordinating as well as notifications and join/leave commands"
+        },
+        {
+            "change": "Improved `/event join` to be more descriptive when altering other event members",
+            "description": "Adjusted verbage to make more sense and added \"by <user>\" to the message so you can see who adjusted the membership"
+        },
+        {
+            "change": "Added event timetravel protection",
+            "description": "When creating a new event, if you provide a date in the past, the bot will stop event creation and provide helpful feedback on your date format"
+        },
+        {
+            "change": "Added new release notes feature",
+            "description": "When updating the bot, it will check if there are release notes associated with the change and publish them automatically to a channel"
+        }
+    ]
+}
