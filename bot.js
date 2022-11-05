@@ -25,7 +25,8 @@ const client = new Discord.Client({
 		Discord.GatewayIntentBits.GuildMessages,
 		Discord.GatewayIntentBits.Guilds,
 		Discord.GatewayIntentBits.MessageContent,
-		Discord.GatewayIntentBits.DirectMessages
+		Discord.GatewayIntentBits.DirectMessages,
+		Discord.GatewayIntentBits.GuildVoiceStates
 	],
 	partials: [Discord.Partials.Message, Discord.Partials.Channel, Discord.Partials.Reaction]
 })
@@ -33,6 +34,7 @@ const logger = require('./src/lib/logger');
 const { cleanupExpiredEvents } = require('./src/lib/events/event-maintenance');
 const { processEventNotifications, processDailyNotifications } = require('./src/lib/events/event-notifications');
 const { executeEventReaction } = require('./src/reactions/event');
+const { cleanupIronBannerChannels } = require('./src/lib/iron-banner');
 
 const commands = [];
 const commandsPath = path.join(__dirname, 'src/slash-commands');
@@ -50,6 +52,7 @@ for (const file of commandFiles) {
 
 const EVENT_CLEANUP_INTERVAL = 1 * 60 * 1000
 const EVENT_NOTIFICATION_INTERVAL = 1 * 60 * 1000
+const IB_CHANNEL_CLEANUP_INTERVAL = 1 * 60 * 1000
 
 if(!process.env.NODE_ENV) {
 	process.env.NODE_ENV = 'development'
@@ -124,9 +127,11 @@ client.on('ready', () => {
 	setInterval(cleanupExpiredEvents, EVENT_CLEANUP_INTERVAL, client)
 	setInterval(processEventNotifications, EVENT_NOTIFICATION_INTERVAL, client)
 	setInterval(processDailyNotifications, EVENT_NOTIFICATION_INTERVAL, client)
+	setInterval(cleanupIronBannerChannels, IB_CHANNEL_CLEANUP_INTERVAL, client)
 	cleanupExpiredEvents(client)
 	processEventNotifications(client)
 	processDailyNotifications(client)
+	cleanupIronBannerChannels(client)
 })
 
 client.on('interactionCreate', async interaction => {
