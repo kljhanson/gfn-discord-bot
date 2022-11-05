@@ -32,7 +32,8 @@ const eventSchema = new mongoose.Schema({
     updatedDate: Date,
     guildId: String,
     status: String,
-    eventChannelId: String
+    eventChannelId: String,
+    private: Boolean
 });
 
 eventSchema.methods.updateMemberStatus = function(username, joinType) {
@@ -201,7 +202,7 @@ function saveEvent(event) {
     })
 }
 
-function createEvent(name, description, game, type, subtype, eventDate, maxMembers, username, guildId, eventChannelId, members) {
+function createEvent(name, description, game, type, subtype, eventDate, maxMembers, username, guildId, eventChannelId, members, privateEvent = false) {
     const currentDate = Date.now()
     let joinedMembers = [username];
     if(members && members.length > 0) {
@@ -233,7 +234,8 @@ function createEvent(name, description, game, type, subtype, eventDate, maxMembe
             updatedDate: currentDate,
             guildId: guildId,
             status: 'Active',
-            eventChannelId: eventChannelId
+            eventChannelId: eventChannelId,
+            private: privateEvent
         });
         saveEvent(event)
         return event
@@ -254,7 +256,7 @@ async function getExpiredEvents(guildId, cleanupWindow) {
     return await Event.find({guildId: guildId, eventDate: { $lte: date }, status: "Active"}).exec()
 }
 
-async function getActiveEvents(guildId, game, games) {
+async function getActiveEvents(guildId, game, games, includePrivate = false) {
     let query = {guildId: guildId, status: "Active"}
     if(game) {
         query.game = game
@@ -264,16 +266,26 @@ async function getActiveEvents(guildId, game, games) {
             $in: games
         }
     }
+    if(!includePrivate) {
+        query.private = {
+            $ne: true
+        }
+    }
     return await Event.find(query).sort({eventDate: 1}).exec()
 }
 
-async function getEventsWithTimeframe(guildId, startTime, endTime, member) {
+async function getEventsWithTimeframe(guildId, startTime, endTime, member, includePrivate = false) {
     let query = {guildId: guildId, status: "Active", eventDate: {
         $gte: startTime,
         $lt: endTime
     }}
     if(member) {
         query.members = member
+    }
+    if(!includePrivate) {
+        query.private = {
+            $ne: true
+        }
     }
     return await Event.find(query).sort({eventDate: 1}).exec()
 }
