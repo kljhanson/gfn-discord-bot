@@ -11,7 +11,9 @@ async function publishReleaseNotes(client) {
     client.guilds.cache.forEach(async guild => {
         logger.info(`evaluating guild ${guild.id}`)
         const config = await getConfiguration(guild.id)
+        logger.debug(`got config`)
         const currentVersion = config.botVersion
+        logger.debug(`currentVersion: ${currentVersion}`)
         if(currentVersion != botVersion) {
             logger.info(`new version detected for guild ${guild.id}. Current = ${currentVersion}, new = ${botVersion}`)
             const rnMessage = await getReleaseNoteMessage(botVersion)
