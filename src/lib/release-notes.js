@@ -23,7 +23,6 @@ async function publishReleaseNotes(client) {
                 await guild.channels.fetch()
                 const rnChannels = await guild.channels.cache.filter(channel => channel.name.includes("release-notes"))
                 const botChannels = await guild.channels.cache.filter(channel => channel.name.includes("bot-channel"))
-                logger.debug(botChannels)
                 let channel
                 if(rnChannels.size == 1) {
                     channel = rnChannels.first()
@@ -31,8 +30,11 @@ async function publishReleaseNotes(client) {
                     channel = botChannels.first()
                 }
                 if(channel) {
+                    logger.info(`sending message to ${channel.name} with id ${channel.id}`)
                     await channel.send(rnMessage)
                     updateBotVersion(guild.id, botVersion)
+                } else {
+                    logger.info(`no channel found for release notes`)
                 }
             } else {
                 logger.info(`no release notes to send for version ${botVersion}`)
