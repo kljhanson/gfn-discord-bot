@@ -90,12 +90,31 @@ async function handleEventCreate(interaction) {
                 members.push(attendee.username)
         }
     }
+    const private = interaction.options.getBoolean("private")
+    const isPrivate = private ? private : false
     const clanevent = interaction.options.getBoolean("clanevent")
 
+    const now = new Date()
     const startDate = parseDateString(date)
     if (!startDate) {
         await interaction.reply("hmm, that didn't work, try to keep the date format simple and try again")
-    }  else {
+    } else if(startDate < now) {
+        await interaction.reply(`**That date occurs in the past!** 
+You provided the string:
+    _"${date}"_ 
+    
+I parsed that to the following date:
+    _"${startDate}"_ 
+
+That occurs before the current date:
+    _"${now}"_
+
+Please correct this and try again! Reminder: you can use multiple types of formatting, some examples:
+    YYYY-MM-dd 8:00pm CT
+    MM/DD/YYYY 8pm EST
+    tomorrorw at 7pm PT
+Hint: you can use the up-arrow on your keyboard to "recover" the previous command`)
+    } else {
         const eventType = await getEventTypeById(type)
         const finalMaxMembers = maxmembers ? maxmembers : (eventType.defaultMax ? eventType.defaultMax : 20)
         const eventDetails = {
@@ -116,6 +135,7 @@ async function handleEventCreate(interaction) {
             guildId: interaction.guild.id,
             status: 'Active',
             eventChannelId: 'tbd',
+            private: isPrivate,
             isClanEvent: clanevent ? clanevent : false
         }
         const event = new Event(eventDetails)
@@ -136,7 +156,7 @@ async function handleEventCreate(interaction) {
             
         const buttons = new Discord.ActionRowBuilder().addComponents(cancelButton, createButton);
         
-        await interaction.reply({ content: 'Create the following event:', embeds: [embed], components: [buttons] })
+        await interaction.reply({ content: 'Create the following event:', embeds: [embed], components: [buttons], ephemeral: isPrivate })
             .then((message) => {
                 logger.debug("add message collector")
                 const filter = i => {
@@ -157,7 +177,7 @@ async function autofillEventId(interaction) {
     const focusedOption = interaction.options.getFocused(true);
 
     if(focusedOption.name === "eventid") {
-        const events = await getActiveEvents(interaction.guild.id)
+        const events = await getActiveEvents(interaction.guild.id, includePrivate = true)
         let options = []
         logger.debug(`found ${events.length} active events`)
         if(events && events.length > 0) {
@@ -210,7 +230,7 @@ async function handleEventDelete(interaction) {
         })
 }
 
-async function handleEventJoin(interaction, joinType) {
+async function handleEventJoin(interaction, joinType, kick = false) {
     let eventId = interaction.options.getInteger('eventid')
     logger.debug(`eventId: ${eventId}`)
     if(!eventId) {
@@ -224,14 +244,24 @@ async function handleEventJoin(interaction, joinType) {
         return interaction.reply({content: `No eventId found! Must supply an eventId or use this command from an event channel`, ephemeral: true})
     }
     let joinUsers = []
-    for(var i = 1; i < 6; i++) {
-        const attendee = interaction.options.getUser(`attendee${i}`)
+    for(var i = 0; i < 6; i++) {
+        let key = `attendee${i}`
+        if(i == 0) {
+            key = 'attendee'
+        }
+        const attendee = interaction.options.getUser(key)
         if(attendee) {
+            logger.debug(`the heck is attendee`)
+            logger.debug(attendee)
+            logger.debug(attendee.username)
             joinUsers.push(attendee)
         }
     }
     if(joinUsers.length == 0) {
-        joinUsers.push(interaction.member)
+        logger.info(`adding author/member`)
+        logger.debug(interaction.member.user)
+        logger.debug(interaction.member.user.username)
+        joinUsers.push(interaction.member.user)
     }
 
     const event = await getEventById(interaction.guild.id, `${eventId}`)
@@ -241,16 +271,21 @@ async function handleEventJoin(interaction, joinType) {
         && !interaction.member.permissions.has(Discord.PermissionFlagsBits.Administrator)) {
         return interaction.reply({content: `You are not the creator of the event and do not have permission to alter membership: _${event.getMiniTitle()}_`, ephemeral: true })
     } else {
-        joinUsers.forEach(joinUser => handleJoinAction(interaction, joinType, joinUser.user, event))
+        joinUsers.forEach(joinUser => handleJoinAction(interaction, joinType, joinUser, event, byUser = interaction.member.user.username))
         if(joinType !== JoinTypes.LEAVE) {
             if(joinUsers.length == 1 && joinUsers[0].username === interaction.member.username) {
                 interaction.reply({ content: `You have joined event: **${event.getMiniTitle()}**`, ephemeral: true })
             }
             else {
-                interaction.reply(`Added or adjusted membership for these users ${joinUsers.map(m => `<@${m.id}>`).join(', ')} for event: **${event.getMiniTitle()}**`)
+                interaction.reply({content: `Added or adjusted membership for these users ${joinUsers.map(m => `<@${m.id}>`).join(', ')} for event: **${event.getMiniTitle()}**`, ephemeral: true})
             }
         } else {
-            interaction.reply({ content: `You have left event: **${event.getMiniTitle()}** `, ephemeral: true })
+            if(kick) {
+                const user = joinUsers[0].username
+                interaction.reply({ content: `Kicked ${user} from event: **${event.getMiniTitle()}** `, ephemeral: true })
+            } else {
+                interaction.reply({ content: `You have left event: **${event.getMiniTitle()}** `, ephemeral: true })
+            }
         }
     }
 }
@@ -279,6 +314,7 @@ module.exports = {
                 .addUserOption(option => option.setName('attendee3').setDescription('Attendee 3').setRequired(false))
                 .addUserOption(option => option.setName('attendee4').setDescription('Attendee 4').setRequired(false))
                 .addUserOption(option => option.setName('attendee5').setDescription('Attendee 5').setRequired(false))
+                .addBooleanOption(option => option.setName('private').setDescription('When creating a private event, you must manage attendees manually').setRequired(false))
                 .addBooleanOption(option => option.setName('clanevent').setDescription('Create Scheduled Event').setRequired(false))
         )
         .addSubcommand(joinCommand => 
@@ -335,7 +371,7 @@ module.exports = {
             } else if(subcommand === 'leave') {
                 await handleEventJoin(interaction, JoinTypes.LEAVE)
             } else if(subcommand === 'kick') {
-                await handleEventJoin(interaction, JoinTypes.LEAVE)
+                await handleEventJoin(interaction, JoinTypes.LEAVE, kick = true)
             } else if(subcommand === 'delete') {
                 await handleEventDelete(interaction)
             } else if(subcommand === 'refresh') {

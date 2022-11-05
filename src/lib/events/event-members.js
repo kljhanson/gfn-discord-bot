@@ -9,7 +9,7 @@ const { updateChannelPermissions, updateEventEmbed } = require('./event-channels
 const { getEventIdFromChannel } = require('./event-utils')
 
 
-function handleJoinAction(originalMessage, joinType, user, event) {
+function handleJoinAction(originalMessage, joinType, user, event, byUser = undefined) {
     if(!joinType) {
         joinType = JoinTypes.LEAVE
     }
@@ -24,7 +24,7 @@ function handleJoinAction(originalMessage, joinType, user, event) {
             joinFullEvent = true
         }
         event.updateMemberStatus(user.username, joinType)
-        sendRosterUpdateMessage(originalMessage, event, user, joinType, joinFullEvent)
+        sendRosterUpdateMessage(originalMessage, event, user, joinType, joinFullEvent, byUser)
         updateChannelPermissions(originalMessage, event, user, isJoined)
         updateEventEmbed(originalMessage.guild, event)
         reviewEventConflicts(originalMessage, event, user, joinType)
@@ -87,24 +87,39 @@ function isAlreadyJoined(event, joinType, user) {
 }
 
 
-function sendRosterUpdateMessage(message, event, user, joinType, joinFullEvent = false) {
+function sendRosterUpdateMessage(message, event, user, joinType, joinFullEvent = false, byUser = undefined) {
     const channelName = event.getChannelName()
     const eventChannel = message.guild.channels.cache.filter(channel => channel.name == channelName).first()
     if(eventChannel) {
         let description = "has left"
+        if(byUser && byUser.trim().length > 0) {
+            description = `was removed by ${byUser} from`
+        }
         if(joinType == JoinTypes.JOIN) {
             description = 'has joined'
+            if(byUser && byUser.trim().length > 0) {
+                description = `was added by ${byUser} to`
+            }
         }
         else  if(joinType == JoinTypes.ALTERNATE) {
             description = 'is an alternate'
             if(joinFullEvent) {
-                description = 'wanted to join the full event, but is added as an alternate'
+                description = 'wanted to join the full event, but is added as an alternate for'
+                if(byUser && byUser.trim().length > 0) {
+                    description = `was added by ${byUser}, but event is full -- they will be an alternate for`
+                }
+            }
+            if(byUser && byUser.trim().length > 0) {
+                description = `was moved to alternate by ${byUser} for`
             }
         }
         else  if(joinType == JoinTypes.INTERESTED) {
             description = 'is interested in'
+            if(byUser && byUser.trim().length > 0) {
+                description = `was moved to interested by ${byUser} for`
+            }
         }
-        const rosterMessage = `**${user.username}** ${description} Event: _${event.name}_`
+        const rosterMessage = `**${user.username}** ${description} event: _${event.name}_`
         eventChannel.send(rosterMessage).then(msg => {
             if(joinType == JoinTypes.JOIN && event.getMembers().length == event.maxMembers) {
                 eventChannel.send(`**Event **_${event.name}_** is full!** 🙌🎉`)
