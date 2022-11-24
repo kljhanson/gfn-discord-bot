@@ -2,8 +2,6 @@ const Discord = require('discord.js')
 const { REST } = require('@discordjs/rest');
 const fs = require("fs")
 const path = require('node:path');
-const {getConfig} = require('./src/lib/config')
-const dbUtils = require('./src/models/db-utils')
 const { initEventTypes, initEventGames } = require('./src/models/event-types-model')
 const {setBotUser, getVersion} = require('./src/lib/global-vars')
 const { executeMemeMessages } = require('./src/commands/memes')
@@ -13,6 +11,14 @@ const { executeSettingsMessage } = require('./src/commands/settings')
 const { executeGeneralMessage } = require('./src/commands/general')
 const { executeEventTypeMessage } = require('./src/commands/event-types')
 const { handleReactionRoles, executeReactionRoleMessage } = require('./src/commands/roles')
+const { cleanupExpiredEvents } = require('./src/lib/events/event-maintenance');
+const { processEventNotifications, processDailyNotifications } = require('./src/lib/events/event-notifications');
+const { executeEventReaction } = require('./src/reactions/event');
+const { cleanupIronBannerChannels } = require('./src/lib/iron-banner');
+const { publishReleaseNotes } = require('./src/lib/release-notes');
+const {getConfig} = require('./src/lib/config')
+const dbUtils = require('./src/models/db-utils')
+const logger = require('./src/lib/logger');
 
 // initialize Discord client
 const client = new Discord.Client({ 
@@ -30,13 +36,6 @@ const client = new Discord.Client({
 	],
 	partials: [Discord.Partials.Message, Discord.Partials.Channel, Discord.Partials.Reaction]
 })
-const logger = require('./src/lib/logger');
-const { cleanupExpiredEvents } = require('./src/lib/events/event-maintenance');
-const { processEventNotifications, processDailyNotifications } = require('./src/lib/events/event-notifications');
-const { executeEventReaction } = require('./src/reactions/event');
-const { cleanupIronBannerChannels } = require('./src/lib/iron-banner');
-const { publishReleaseNotes } = require('./src/lib/release-notes');
-const { messWithRogue } = require('./src/lib/meme-utils');
 
 const commands = [];
 const commandsPath = path.join(__dirname, 'src/slash-commands');
@@ -135,7 +134,7 @@ client.on('ready', () => {
 	processDailyNotifications(client)
 	cleanupIronBannerChannels(client)
 	publishReleaseNotes(client)
-	messWithRogue(client)
+	//messWithRogue(client)
 })
 
 client.on('interactionCreate', async interaction => {

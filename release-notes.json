@@ -1,4 +1,10 @@
 {
+    "3.2.2": [
+        {
+            "change": "Disabled Rogue Protocol",
+            "description": "Removed offending code and commands"
+        }
+    ],
     "3.2.1": [
         {
             "change": "Fixed issue with cancel buttons on events",
