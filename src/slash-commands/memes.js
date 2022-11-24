@@ -1,6 +1,6 @@
 const Discord = require('discord.js');
 const { replyImage, sendReply } = require('../lib/discord-utils');
-const { messWithRogue, messWithRogueManual } = require('../lib/meme-utils');
+// const { messWithRogue, messWithRogueManual } = require('../lib/meme-utils');
 
 module.exports = {
 	data: new Discord.SlashCommandBuilder()
@@ -26,7 +26,7 @@ module.exports = {
             sendReply(interaction, '<@251761701194563584> Hello muppet, beep boop. I calculate we are enemies.')
         }
         if(subcommand === 'otherrogue') {
-            messWithRogueManual(interaction)
+            //messWithRogueManual(interaction)
         }
         if(subcommand === 'snek' || subcommand === 'hybrid') {
             replyImage(interaction, 'https://media.tenor.com/images/f88700a975e4139be55cb933e05f64d7/tenor.gif', '<@231577281758232576>')
