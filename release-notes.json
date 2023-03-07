@@ -1,4 +1,10 @@
 {
+    "3.2.3": [
+        {
+            "change": "Fixed bug with join command",
+            "description": "It did not work if you were not an admin and wanted to add someone other than yourself."
+        }
+    ],
     "3.2.2": [
         {
             "change": "Disabled Rogue Protocol",
