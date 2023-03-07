@@ -277,8 +277,7 @@ async function handleEventJoin(interaction, joinType, kick = false) {
     const event = await getEventById(interaction.guild.id, `${eventId}`)
     if(joinUsers.length > 0 
         && (joinUsers.length == 1 && joinUsers[0].username !== interaction.member.username)
-        && interaction.member.username !== event.creator 
-        && !interaction.member.permissions.has(Discord.PermissionFlagsBits.Administrator)) {
+        && (interaction.member.username !== event.creator || !interaction.member.permissions.has(Discord.PermissionFlagsBits.Administrator))) {
         return interaction.reply({content: `You are not the creator of the event and do not have permission to alter membership: _${event.getMiniTitle()}_`, ephemeral: true })
     } else {
         joinUsers.forEach(joinUser => handleJoinAction(interaction, joinType, joinUser, event, byUser = interaction.member.user.username))
