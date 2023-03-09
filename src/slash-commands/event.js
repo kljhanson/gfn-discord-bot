@@ -1,6 +1,6 @@
 const Discord = require('discord.js');
 const { parseDateString } = require('../lib/date-utils')
-const { Event, getActiveEvents, getEventById, JoinTypes } = require('../models/event-model')
+const { Event, getActiveEvents, getEventById, JoinTypes, saveEvent } = require('../models/event-model')
 const { getEventGames, getEventTypesByGame, getEventTypeById } = require('../models/event-types-model');
 const { getEventEmbed } = require('../lib/events/event-ui')
 const logger = require('../lib/logger');
@@ -9,6 +9,7 @@ const { toJson, isNumeric } = require('../lib/utils');
 const { getEventIdFromChannel } = require('../lib/events/event-utils');
 const { refreshEventsChannel } = require('../lib/events/event-maintenance');
 const { handleJoinAction } = require('../lib/events/event-members');
+const { updateEventEmbed, updateEventChannel, getEventsChannel } = require('../lib/events/event-channels');
 
 async function autofillEventCreate(interaction) {
     logger.debug("we autocompleting")
@@ -182,7 +183,7 @@ async function autofillEventId(interaction) {
     const focusedOption = interaction.options.getFocused(true);
 
     if(focusedOption.name === "eventid") {
-        const events = await getActiveEvents(interaction.guild.id, null, null, true, interaction.member.user.username)
+        const events = await getActiveEvents(interaction.guild.id, null, null, true, interaction.user.username)
         let options = []
         logger.debug(`found ${events.length} active events`)
         if(events && events.length > 0) {
@@ -240,6 +241,123 @@ async function handleEventDelete(interaction) {
         })
 }
 
+async function handleEventEdit(interaction) {
+    let eventId = interaction.options.getInteger('eventid')
+    const name = interaction.options.getString("name")
+    const description = interaction.options.getString("description")
+    const date = interaction.options.getString("date")
+    const maxmembers = interaction.options.getInteger("maxmembers")
+    logger.debug(`eventId: ${eventId}`)
+    if(!eventId) {
+        eventId = getEventIdFromChannel(interaction.channel.name)
+    }
+    if(!eventId || (!Number.isInteger(eventId) && !isNumeric(eventId))) {
+        logger.debug(`bad eventId: ${eventId}`)
+        logger.debug(`${typeof eventId}`)
+        logger.debug(`${Number.isInteger(eventId)}`)
+        logger.debug(`${isNumeric(eventId)}`)
+        return interaction.reply({content: `No eventId found! Must supply an eventId or use this command from an event channel`, ephemeral: true})
+    }
+
+    const event = await getEventById(interaction.guild.id, `${eventId}`)
+    if(interaction.user.username !== event.creator && !interaction.member.permissions.has(Discord.PermissionFlagsBits.Administrator)) {
+        return interaction.reply({content: `You are not the creator of the event and do not have permission to modify this event: _${event.getMiniTitle()}_`, ephemeral: true })
+    } else if(event) {
+        let shouldContinue = true
+        let finalName = event.name
+        let finalDescription = event.description
+        let finalMaxMembers = event.maxMembers
+        if(name && name.trim().length > 0) {
+            finalName = name
+        }
+        if(description && description.trim().length > 0) {
+            finalDescription = description
+        }
+        if(maxmembers && maxmembers > 0) {
+            finalMaxMembers = maxmembers
+        }
+
+        const now = new Date()
+        let finalEventDate = event.eventDate
+        if(date) {
+            const startDate = parseDateString(date)
+            if (!startDate) {
+                shouldContinue = false
+                await interaction.reply("hmm, that didn't work, try to keep the date format simple and try again")
+            } else if(startDate < now) {
+                shouldContinue = false
+                await interaction.reply(`**That date occurs in the past!** 
+    You provided the string:
+        _"${date}"_ 
+        
+    I parsed that to the following date:
+        _"${startDate}"_ 
+
+    That occurs before the current date:
+        _"${now}"_
+
+    Please correct this and try again! Reminder: you can use multiple types of formatting, some examples:
+        YYYY-MM-dd 8:00pm CT
+        MM/DD/YYYY 8pm EST
+        tomorrorw at 7pm PT
+    Hint: you can use the up-arrow on your keyboard to "recover" the previous command`)
+            } else {
+                finalEventDate = startDate
+            }
+        } 
+        if(shouldContinue) {
+            event.name = finalName
+            event.description = finalDescription
+            event.maxMembers = finalMaxMembers
+            event.eventDate = finalEventDate
+            event.updatedDate = Date.now()
+            const embed = await getEventEmbed(event)
+            logger.debug("got embed")
+            
+            const cancelButton = new Discord.ButtonBuilder()
+                .setCustomId('event_cancel')
+                .setLabel('Cancel')
+                .setStyle(Discord.ButtonStyle.Secondary)
+
+            const updateButton = new Discord.ButtonBuilder()
+                .setCustomId('event_update')
+                .setLabel('Save Changes')
+                .setStyle(Discord.ButtonStyle.Primary)
+                
+            const buttons = new Discord.ActionRowBuilder().addComponents(cancelButton, updateButton);
+            
+            await interaction.reply({ content: 'Update the following event:', embeds: [embed], components: [buttons] })
+                .then((message) => {
+                    logger.debug("add message collector")
+                    const filter = i => {
+                        i.deferUpdate();
+                        return i.user.id === interaction.user.id;
+                    };
+                    
+                    message.awaitMessageComponent({ filter, componentType: Discord.ComponentType.Button, time: 60000 })
+                        .then(async buttonDeets => {
+                            if(buttonDeets.customId === 'event_cancel') {
+                                interaction.editReply({content: "Cancelling event edit", embeds: [], components: []})
+                                interaction.followUp({content: "Cancelling event edit"})
+                            } else if(buttonDeets.customId === 'event_update') {
+                                logger.debug("update button pressed")
+                                logger.debug(`new event: ${JSON.stringify(event)}`)
+                                saveEvent(event)
+                                const newEventEmbed = await getEventEmbed(event, interaction.guild)
+                                logger.info(`updating event embed`)
+                                await updateEventEmbed(interaction.guild, event)
+                                // const config = await getConfiguration(interaction.guild.id)
+                                // const eventsChannel = await getEventsChannel(interaction.guild, config, event.game)
+                                logger.info(`updating event channel`)
+                                updateEventChannel(event, null, interaction.guild)
+                                interaction.editReply({content: "Updated event:", embeds: [newEventEmbed], components: []})
+                            }
+                        }).catch(err => console.log(`No interactions were collected.`));
+                })
+        }
+    }
+}
+
 async function handleEventJoin(interaction, joinType, kick = false) {
     let eventId = interaction.options.getInteger('eventid')
     logger.debug(`eventId: ${eventId}`)
@@ -276,13 +394,13 @@ async function handleEventJoin(interaction, joinType, kick = false) {
 
     const event = await getEventById(interaction.guild.id, `${eventId}`)
     if(joinUsers.length > 0 
-        && (joinUsers.length == 1 && joinUsers[0].username !== interaction.member.username)
-        && (interaction.member.username !== event.creator || !interaction.member.permissions.has(Discord.PermissionFlagsBits.Administrator))) {
+        && (joinUsers.length == 1 && joinUsers[0].username !== interaction.user.username)
+        && (interaction.user.username !== event.creator && !interaction.member.permissions.has(Discord.PermissionFlagsBits.Administrator))) {
         return interaction.reply({content: `You are not the creator of the event and do not have permission to alter membership: _${event.getMiniTitle()}_`, ephemeral: true })
     } else {
-        joinUsers.forEach(joinUser => handleJoinAction(interaction, joinType, joinUser, event, byUser = interaction.member.user.username))
+        joinUsers.forEach(joinUser => handleJoinAction(interaction, joinType, joinUser, event, byUser = interaction.user.username))
         if(joinType !== JoinTypes.LEAVE) {
-            if(joinUsers.length == 1 && joinUsers[0].username === interaction.member.username) {
+            if(joinUsers.length == 1 && joinUsers[0].username === interaction.user.username) {
                 interaction.reply({ content: `You have joined event: **${event.getMiniTitle()}**`, ephemeral: true })
             }
             else {
@@ -340,6 +458,14 @@ module.exports = {
                 .addUserOption(option => option.setName('attendee4').setDescription('Attendee 4').setRequired(false))
                 .addUserOption(option => option.setName('attendee5').setDescription('Attendee 5').setRequired(false))
         )
+        .addSubcommand(editCommand => 
+            editCommand.setName("edit").setDescription("Edit an event")
+                .addIntegerOption(option => option.setName('eventid').setDescription('Event ID').setRequired(true).setAutocomplete(true))
+                .addStringOption(option => option.setName('name').setDescription('Event Name').setRequired(false))
+                .addStringOption(option => option.setName('description').setDescription('Event Description').setRequired(false))
+                .addStringOption(option => option.setName('date').setDescription(`Event Date -- Ex: 01-01-2020 8pm CT; Friday 8pm PT; Timezones: PT, MT, CT, ET`).setRequired(false))
+                .addIntegerOption(option => option.setName('maxmembers').setDescription('Max Member Count').setRequired(false))
+        )
         .addSubcommand(leaveCommand => 
             leaveCommand.setName("leave").setDescription("Leave an event")
                 .addIntegerOption(option => option.setName('eventid').setDescription('Event ID').setRequired(false).setAutocomplete(true))
@@ -362,7 +488,8 @@ module.exports = {
         if (interaction.isAutocomplete()) {
             if(subcommand === 'create') {
                 await autofillEventCreate(interaction)
-            } else if(subcommand === 'join' 
+            } else if(subcommand === 'edit' 
+                || subcommand === 'join' 
                 || subcommand === 'leave' 
                 || subcommand === 'kick' 
                 || subcommand === 'delete') {
@@ -374,6 +501,8 @@ module.exports = {
         if (interaction.isCommand()) {
             if(subcommand === 'create') {
                 await handleEventCreate(interaction)
+            } else if(subcommand === 'edit') {
+                await handleEventEdit(interaction)
             } else if(subcommand === 'join') {
                 const joinType = interaction.options.getString('type') ? interaction.options.getString('type') : JoinTypes.JOIN
                 await handleEventJoin(interaction, joinType)
