@@ -1,4 +1,14 @@
 {
+    "3.3.0": [
+        {
+            "change": "Added edit event slash command",
+            "description": "Now able to change the name, description, date and max members for events"
+        },
+        {
+            "change": "Actually fixed bug with join command",
+            "description": "Code be dumb like that sometimes"
+        }
+    ],
     "3.2.3": [
         {
             "change": "Fixed bug with join command",
